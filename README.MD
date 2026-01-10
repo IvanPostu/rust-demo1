@@ -3,10 +3,16 @@
 Minimal rust project
 
 ```sh
-# Build dev
+# Build dev/debug
 cargo build
 #Build release
 cargo build --release
+
+# create helloworld
+cargo new test_rust
+
+# run
+cargo run
 
 # Run:
 $PROJECT_ROOT/target/release/rust-demo1
@@ -17,3 +23,7 @@ $PROJECT_ROOT/target/release/rust-demo1
 Codium with these plugins:
 
 <img src="./_forReadme/image1.png" />
+
+## References
+
+1. <https://stas-norochevskiy.gitbook.io/roll-in-to-rust>
