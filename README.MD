@@ -21,6 +21,10 @@ $PROJECT_ROOT/target/release/rust-demo1
 print arr
 #shows: (int[3])  ([0] = 1, [1] = 2, [2] = 3)
 
+# cargo install cargo-expand
+# cargo expand - tool to debug macros
+# wrapper around: cargo rustc --profile=check -- -Zunpretty=expanded
+
 ```
 
 ## Code editor + debugger

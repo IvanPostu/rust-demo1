@@ -4,6 +4,9 @@ static STATIC_EXAMPLE: i32 = 123;
 const PI: f32 = 3.14;
 const TAU: f32 = double(PI);
 
+const STATIC_LIFETIME_STR: &'static str = "STATIC_LIFETIME_STR";
+const IMPLICIT_STATIC_LIFETIME_STR: &str = "IMPLICIT_STATIC_LIFETIME_STR";
+
 fn main() {
     let mut _i8: i8 = 1;
     let mut _i16: i16 = 1;
@@ -374,7 +377,137 @@ fn main() {
         println!("{arr:?}");
     }
 
+    // lifetime - a mechanism that guarantees that a reference to an abject doesn't live longer than the object
+    {
+        // let s1 = String::from("aaa");
+        // let longest;
+        {
+            // compile time error
+            // fn take_longest(x: &str, y: &str) -> &str {
+            //     if x.len() > y.len() {
+            //         x
+            //     } else {
+            //         y
+            //     }
+            // }
+
+            // let s2 = String::from("bbbb");
+            // longest = take_longest(s1.as_str(), s2.as_str());
+        }
+
+        {
+            // explicit lifetime, it says x and y should belong to the same lifetime (scope)
+            fn _take_longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+                if x.len() > y.len() {
+                    x
+                } else {
+                    y
+                }
+            }
+
+            // let s1 = String::from("aaa");
+            // let longest;
+            // {
+            //     let s2 = String::from("bbbb");
+            //     longest = take_longest(s1.as_str(), s2.as_str()); // s2 does not live long enough
+            //                                                       // compile time error due to different lifetime of s1 and s2
+
+            //     println!("The longest string is {}", longest);
+            // }
+        }
+
+        // Lifetime is a protection provided by compiler, sometimes in order to avoid it we can use .clone() method
+
+        // Macros - a mechanism that permits to generate code before or during compilation
+        // Declarative macros - works during compilation, manipulates with AST tree
+        // Procedural macros - macros that works before compilation
+    }
+
+    {
+        println!("IMPLICIT_STATIC_LIFETIME_STR={IMPLICIT_STATIC_LIFETIME_STR}");
+        println!("STATIC_LIFETIME_STR={STATIC_LIFETIME_STR}");
+    }
+
+    {
+        let res = sum_numbers!(1, 2);
+        // on compilation will be replaced with:
+        // let res = 1 + 2;
+        println!("Sum is: {}", res);
+        println!("result={}", sum_numbers!(if 5 > 4 { 1 } else { -1 }, 9));
+    }
+
+    // rust supports vararg only through macros
+    {
+        let res1 = vararg_enulation_sum!(1, 2, 3, 4, 5);
+        println!("Sum is: {}", res1); // Sum is: 15
+
+        let res2 = vararg_enulation_sum_simplified!(1, 2, 3, 4, 5);
+        println!("Sum is: {}", res2); // Sum is: 15
+
+        let res3 = vararg_enulation_sum_simplified!();
+        println!("Sum is: {}", res3); // Sum is: 15
+
+        // any kind of parenthesis
+        let _ = vararg_enulation_sum!(1, 2);
+        let _ = vararg_enulation_sum![1, 2];
+        let _ = vararg_enulation_sum! {1, 2};
+        ()
+    }
+
+    {
+        make_empty_func!(function_1);
+        make_empty_func! {function_2} // if macros generates func or struct and we use {} parenthesis, ; is optional
+
+        function_1();
+        function_2();
+    }
+
+    {
+        let v = custom_vec2![1, 2, 3];
+        println!("{v:?}");
+    }
+
     println!("end")
+}
+
+#[macro_export]
+macro_rules! custom_vec2 {
+    () => { Vec::new() };
+    ( $( $x:expr),* ) => {
+        {
+            let mut _temp = Vec::new();
+            $( _temp.push($x); )*
+            _temp
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! make_empty_func {
+    ($func_name:ident) => {
+        fn $func_name() {}
+    };
+}
+
+#[macro_export]
+macro_rules! vararg_enulation_sum_simplified {
+    ( $( $rest:expr ),* ) => { 0 $( + $rest )* }
+}
+
+#[macro_export]
+macro_rules! vararg_enulation_sum {
+    () => { 0 };
+    (  $first:literal $(, $rest:literal )* ) => {
+        $first $( + $rest )*
+    };
+}
+
+// instead of expr we can use: expr, stmt, ty, path, pat, item, block, meta, ident, tt, literal, vis
+#[macro_export]
+macro_rules! sum_numbers {
+    ( $x:expr, $y:expr ) => {
+        $x + $y
+    };
 }
 
 // slice argument is for flexibility, allows using it with array and vector
