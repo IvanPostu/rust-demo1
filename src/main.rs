@@ -1,6 +1,9 @@
 const CONST_EXAMPLE: &str = "CONST_EXAMPLE"; // can't be created via String::from("value") because on compile time value should be known;
 static STATIC_EXAMPLE: i32 = 123;
 
+const PI: f32 = 3.14;
+const TAU: f32 = double(PI);
+
 fn main() {
     let mut _i8: i8 = 1;
     let mut _i16: i16 = 1;
@@ -245,7 +248,85 @@ fn main() {
         }
     }
 
+    {
+        println!("safe_divide(2.2, 0.0)={}", safe_divide(2.2, 0.0));
+        println!("safe_divide(2.2, 0.1)={}", safe_divide(2.2, 0.1));
+        println!("safe_divide2(2.2, 0.0)={}", safe_divide2(2.2, 0.0));
+        println!("safe_divide2(2.2, 0.1)={}", safe_divide2(2.2, 0.1));
+        println!("fibonacci_nth_element(7)={}", fibonacci_nth_element(7));
+    }
+
+    {
+        fn gen_num() -> i32 {
+            // variable v is of never type
+            let _v = return 5;
+        }
+        let r = gen_num();
+        println!("r={r}");
+
+        println!("TAU={TAU}");
+        let q = double(r as f32);
+        println!("q={q}");
+    }
+
+    {
+        println!("sum_with_previous={}", sum_with_previous(1)); // 1
+        println!("sum_with_previous={}", sum_with_previous(2)); // 3
+        println!("sum_with_previous={}", sum_with_previous(7)); // 9
+        println!("sum_with_previous={}", sum_with_previous(-6)); // 1
+    }
+
     println!("end")
+}
+
+// static variable in the method behaves exactly like in C lang
+fn sum_with_previous(x: i32) -> i32 {
+    static mut PREV: i32 = 0;
+    unsafe {
+        let result = PREV + x;
+        PREV = x;
+        result
+    }
+}
+
+// const fn can be executed on compile time
+const fn double(num: f32) -> f32 {
+    num * 2.0
+}
+
+fn fibonacci_nth_element(index: usize) -> u32 {
+    if index == 0 {
+        return 0;
+    }
+    if index == 1 {
+        return 1;
+    }
+
+    fn next_fibonacci(x0: u32, x1: u32, next_index: usize, desired_index: usize) -> u32 {
+        let x2 = x0 + x1;
+        if next_index == desired_index {
+            x2
+        } else {
+            next_fibonacci(x1, x2, next_index + 1, desired_index)
+        }
+    }
+
+    next_fibonacci(0, 1, 2, index)
+}
+
+fn safe_divide(a: f32, b: f32) -> f32 {
+    if b != 0.0 {
+        a / b
+    } else {
+        0.0
+    }
+}
+
+fn safe_divide2(a: f32, b: f32) -> f32 {
+    if b != 0.0 {
+        return a / b;
+    }
+    0.0
 }
 
 fn populate_str(s: &mut String) {
