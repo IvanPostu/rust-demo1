@@ -276,7 +276,42 @@ fn main() {
         println!("sum_with_previous={}", sum_with_previous(-6)); // 1
     }
 
+    // tuples
+    {
+        let employee: (&str, i32, bool) = ("John Doe", 1980, true);
+        println!(
+            "Name: {}, birth year: {}, active: {}",
+            employee.0, employee.1, employee.2
+        );
+        let (name, birth_year, is_active) = employee;
+        println!(
+            "Name: {}, birth year: {}, active: {}",
+            name, birth_year, is_active
+        );
+    }
+
+    {
+        let numbers = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let (odds, evens) = split_to_odd_and_even(&numbers);
+        println!("Odd numbers:  {odds:?}");
+        println!("Even numbers: {evens:?}");
+    }
+
     println!("end")
+}
+
+// slice argument is for flexibility, allows using it with array and vector
+fn split_to_odd_and_even(numbers: &[i32]) -> (Vec<i32>, Vec<i32>) {
+    let mut odds = Vec::new();
+    let mut evens = Vec::new();
+    for n in numbers {
+        if n % 2 != 0 {
+            odds.push(*n);
+        } else {
+            evens.push(*n);
+        }
+    }
+    (odds, evens)
 }
 
 // static variable in the method behaves exactly like in C lang
