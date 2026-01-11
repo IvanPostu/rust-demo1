@@ -45,9 +45,68 @@ fn main() {
     println!("long_example={}", long_example);
     println!("r#if={}", r#if);
     println!("STATIC_EXAMPLE={}", STATIC_EXAMPLE);
-    println!("small_float={}", small_float);
-    println!("b1={}, b2={}", b1, b2);
-    println!("big_float={}", big_float);
+    println!("small_float={aaa}", aaa = small_float); // print with named placeholder
+    println!("b1={}, b2={}", b1, b2); // print with args, similar to C sprintf
+    println!("big_float={big_float}"); // print with explicit variable inside the string
     println!("downcast={}", big_float as f32);
     println!("upcast={}", small_float as f64);
+
+    // printf works for type that defines std::fmt::Display, similar to java toString or C++ ostream << operator
+    // {}  - std::fmt::Display
+    // {:?} - std::fmt::Debug
+
+    {
+        let _b = 2;
+    }
+    // scopes are similar to java, variables lifetime is related to the scope
+
+    let scope_result: i32 = {
+        let a = 1;
+        let b = 1;
+        let c = 1;
+        a + b + c
+    }; // ; is required
+    println!("scope_result={}", scope_result);
+
+    // by default scope returns Unit type i.e. ()
+    let _unit2: () = {
+        let _b = 2;
+    };
+    let _unit3: () = {
+        let _b = 2;
+        ()
+    };
+
+    {
+        // immutable references
+        let example_of_i32: i32 = 90;
+        let ref_to_example_of_i32: &i32 = &example_of_i32;
+        println!("example_of_i32={}", example_of_i32);
+        println!("ref_to_example_of_i32={}", ref_to_example_of_i32);
+    }
+
+    {
+        // mutable references
+        let mut a: i32 = 5;
+        let ref_a: &mut i32 = &mut a;
+        println!("Value in a is {}", ref_a); // Value in a is 99
+        *ref_a = 99;
+        println!("Value in a is {}", ref_a); // Value in a is 99
+    }
+
+    // rust reference is handled by compiler, C's reference is a real data
+
+    // immutable array
+    {
+        let arr: [i32; 3] = [1, 2, 3]; // can't be expanded, known on compile time
+        println!("Array is {arr:?}");
+    }
+
+    // mutable array
+    {
+        let mut arr = [1, 2, 3];
+        arr[1] = 55;
+        println!("Array is {arr:?}");
+    }
+    // by default array in the function scope is stored on stack
 }

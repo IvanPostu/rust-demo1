@@ -16,6 +16,11 @@ cargo run
 
 # Run:
 $PROJECT_ROOT/target/release/rust-demo1
+
+# inside debug shell
+print arr
+#shows: (int[3])  ([0] = 1, [1] = 2, [2] = 3)
+
 ```
 
 ## Code editor + debugger
