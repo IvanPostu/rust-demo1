@@ -972,6 +972,74 @@ fn main() {
         }
     }
 
+    {
+        struct Point2D {
+            x: i32,
+            y: i32,
+        }
+
+        // PartialEq - is analogue of java's equals method
+        impl PartialEq for Point2D {
+            fn eq(&self, other: &Self) -> bool {
+                self.x == other.x && self.y == other.y
+            }
+        }
+
+        let p1 = Point2D { x: 1, y: 1 };
+        let p2 = Point2D { x: 1, y: 1 };
+        println!("p1 = p2: {}", p1 == p2);
+
+        #[derive(Debug, Clone, PartialEq)] // checks equality for each field
+        struct Point2D2 {
+            x: i32,
+            y: i32,
+        }
+
+        let p1 = Point2D2 { x: 1, y: 1 };
+        let p2 = Point2D2 { x: 1, y: 1 };
+        println!("p1 = p2: {}", p1 == p2);
+
+        let p3 = Point2D2 { x: 0, y: 0 };
+        let p4 = Point2D2 { x: 1, y: 1 };
+        println!("p3 = p4: {}", p3 == p4);
+
+        // #[annotation(args)]
+        // annotation is a mechanism that allow rust to use a specific pre-processor that generates code
+        // e.g. Hash, Debug, Default
+
+        let p5 = p4.clone();
+        println!("p4 = p5: {}", p4 == p5);
+        println!("p4={:?}, p5={:?}", p4, p5);
+
+        // clone can be implemented manually
+        impl Clone for Point2D {
+            fn clone(&self) -> Point2D {
+                Point2D {
+                    x: self.x,
+                    y: self.y,
+                }
+            }
+        }
+        // the difference is that #[derive(Clone)] requires all fields to be cloneable
+    }
+
+    // trait Copy
+    {
+        #[derive(Debug, Clone, Copy)]
+        struct Point2D {
+            #[allow(dead_code)]
+            x: i32,
+            #[allow(dead_code)]
+            y: i32,
+        }
+
+        let p1 = Point2D { x: 1, y: 1 };
+        let p2 = p1; // calls p1.clone()
+
+        println!("p1={:?}, p2={:?}", p1, p2);
+        // p1=Point2D { x: 1, y: 1 }, p2=Point2D { x: 1, y: 1 }
+    }
+
     println!("end")
 }
 
