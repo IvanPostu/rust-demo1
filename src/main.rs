@@ -152,5 +152,65 @@ fn main() {
         println!("v[1]: {}", v[1]); // 9
     }
 
+    {
+        let c: char = '😄';
+        println!("Java's 2 byte char can't store rust's 4 byte char:{}", c);
+    }
+
+    // String type and &str (string's slice (address, length))
+    {
+        let s1: &str = "some text";
+        let s2 = "some text";
+        //. type &str, similar to C's const char*
+        // for this example let s2 = "some text"; string lives in binary’s read-only section
+        // but because it is slice, it can reference string in heap, stack or binary's section
+
+        println!("s1={s1}");
+        println!("s2={s2}");
+    }
+
+    // String is a wrapper for Vec<u8>
+    // String::from copies &str to a new String instance
+    // String::new creates empty string (can be populated)
+    // String's buffer lives in heap
+    {
+        let slice: &str = "text";
+        let s = String::from(slice);
+        println!("s={s}");
+    }
+
+    {
+        println!("Please enter some text and hit Enter button");
+
+        let mut buf = String::new();
+        // let _ = std::io::stdin().read_line(&mut buf);
+        populate_str(&mut buf);
+        println!("You have entered: {buf}");
+        println!(
+            "without first character: {}",
+            copy_string_ignoring_first_character(&buf)
+        );
+        let a_slice_2: &str = buf.as_str();
+        println!("a_slice_2={a_slice_2}")
+    }
+
+    // format usage
+    {
+        let s: String = format!("{} in the power of the 2 is {}", 3, 9);
+        println!("{s}");
+    }
+
     println!("end")
+}
+
+fn populate_str(s: &mut String) {
+    s.push_str("😄hello 1");
+    s.push('1');
+    s.push('2');
+}
+
+fn copy_string_ignoring_first_character(s: &String) -> String {
+    let start = s.char_indices().nth(1).map_or(s.len(), |(i, _)| i);
+    let slice: &str = &s[start..];
+    return slice.to_string();
 }
