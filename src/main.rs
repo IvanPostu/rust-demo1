@@ -467,6 +467,218 @@ fn main() {
         println!("{v:?}");
     }
 
+    // pointers
+    {
+        let mut v: i32 = 5;
+        let const_ptr1: *const i32 = &v as *const i32;
+        let mut_prt1: *mut i32 = &mut v as *mut i32;
+
+        let const_ptr2: *const i32 = &raw const v;
+        let mut_prt2: *mut i32 = &raw mut v;
+
+        let const_ptr3: *const i32 = std::ptr::addr_of!(v);
+        let mut_prt3: *mut i32 = std::ptr::addr_of_mut!(v);
+
+        let ptr: *const i32 = (&v) as *const i32; // convert address to pointer
+
+        unsafe {
+            println!("{}", *const_ptr1); // get value that pointer references
+            println!("{}", *mut_prt1); // get value that pointer references
+            println!("{}", *const_ptr2); // get value that pointer references
+            println!("{}", *mut_prt2); // get value that pointer references
+            println!("{}", *const_ptr3); // get value that pointer references
+            println!("{}", *mut_prt3); // get value that pointer references
+            println!("{}", *ptr); // get value that pointer references
+        }
+    }
+
+    // bypassing borrowing rule: at most one mutable reference or multiple readonly
+    // mutable reference/address -> pointer -> mutable reference
+    {
+        fn inc(a: &mut i32) {
+            *a = *a + 1;
+        }
+
+        let mut a = 5;
+        unsafe {
+            let r1: &mut i32 = &mut a;
+            let ptr: *mut i32 = r1 as *mut i32;
+            let r2: &mut i32 = ptr.as_mut().unwrap();
+            inc(r1);
+            inc(r2);
+        }
+        println!("{a}"); // 7
+    }
+
+    // structs
+    // struct name - PascalCase
+    // struct field - snake case
+
+    {
+        struct Person {
+            first_name: String,
+            last_name: String,
+        }
+
+        fn get_full_name(p: &Person) -> String {
+            format!("{} {}", p.first_name, p.last_name)
+        }
+
+        let first_name = String::from("John");
+        let person = Person {
+            first_name,
+            last_name: String::from("Doe"),
+        };
+
+        let full_name = get_full_name(&person);
+        println!("{}", full_name); // "John Doe"
+
+        let mut p = Person {
+            first_name: "John".to_string(),
+            last_name: "Doe".to_string(),
+        };
+        p.first_name = "Theodor".to_string();
+    }
+
+    {
+        struct Person {
+            first_name: String,
+            last_name: String,
+        }
+
+        impl Person {
+            fn new(first: &str, last: &str) -> Person {
+                Person {
+                    first_name: first.to_string(),
+                    last_name: last.to_string(),
+                }
+            }
+            fn set_empty_full_name(&mut self) {
+                self.first_name = String::new();
+                self.last_name = String::new();
+            }
+            fn get_full_name(&self) -> String {
+                format!("{} {}", self.first_name, self.last_name)
+            }
+        }
+
+        let mut _p = Person::new("John", "Doe");
+        let p1 = Person {
+            first_name: "John".to_string(),
+            last_name: "Doe".to_string(),
+        };
+
+        let mut p2 = Person {
+            first_name: "Robert".to_string(),
+            ..p1
+        };
+
+        println!("{} {}", p2.first_name, p2.last_name); // Robert Doe
+        println!("Fullname method result: {}", p2.get_full_name()); // Robert Doe
+        p2.set_empty_full_name();
+        println!("Set_empty + Fullname method result: {}", p2.get_full_name());
+    }
+
+    // tuple structs
+    // briefly instead of field_name is used index
+    // we can add methods
+    {
+        struct RGB(u8, u8, u8);
+
+        impl RGB {
+            fn as_u32(&self) -> u32 {
+                ((self.0 as u32) << 16) + ((self.1 as u32) << 8) + (self.2 as u32)
+            }
+        }
+
+        {
+            let mut color: RGB = RGB(255, 0, 0);
+            println!("Red channel: {}", color.0);
+
+            color.1 = 255;
+
+            let RGB(r, g, b) = color;
+
+            println!("R={r}, G={g}, B={b}"); // R=255, G=255, B=0
+
+            println!("As number: {}", color.as_u32());
+        }
+    }
+
+    // singleton structure
+    {
+        struct Universe;
+
+        impl Universe {
+            fn includes(&self, p: &Planet) -> bool {
+                println!("{}", p.name); // true
+                true
+            }
+        }
+
+        struct Planet {
+            name: String,
+        }
+
+        let universe = Universe;
+
+        let earth = Planet {
+            name: "Earth".to_string(),
+        };
+        println!("{} {}", universe.includes(&earth), earth.name); // true
+    }
+
+    // struct lifetime
+    {
+        #[derive(Debug)]
+        struct _NameComponents<'a> {
+            first_name: &'a str,
+            last_name: &'a str,
+        }
+
+        // let components;
+        {
+            let full_name = "John Doe".to_string();
+
+            let _space_position = full_name.find(" ").unwrap();
+
+            // Error: `full_name` does not live long enough
+            // components = NameComponents {
+            //     first_name: &full_name[0..space_position],
+            //     last_name: &full_name[space_position + 1..],
+            // };
+        }
+        // println!("{components:?}");
+    }
+
+    // How the struct is represented in memory?
+    {
+        struct MyStruct {
+            a: i32,
+            b: i64,
+        }
+
+        println!("Size = {}", std::mem::size_of::<MyStruct>()); // Size = 16
+
+        let s = MyStruct { a: 1, b: 2 };
+        println!("a: {}", (&s.a as *const i32) as usize); // a: 140731421349072
+        println!("b: {}", (&s.b as *const i64) as usize); // b: 140731421349064
+
+        println!("MyStruct at {:p}", &s);
+
+        let arr = [
+            MyStruct { a: 1, b: 2 },
+            MyStruct { a: 3, b: 4 },
+            MyStruct { a: 5, b: 6 },
+        ];
+        println!("arr[0].a: {:p}", &arr[0].a); // arr[0].a: 0x7ffdc124d970
+        println!("arr[0].b: {:p}", &arr[0].b); // arr[0].b: 0x7ffdc124d968
+        println!("arr[1].a: {:p}", &arr[1].a); // arr[1].a: 0x7ffdc124d980
+        println!("arr[1].b: {:p}", &arr[1].b); // arr[1].b: 0x7ffdc124d978
+        println!("arr[2].a: {:p}", &arr[2].a); // arr[2].a: 0x7ffdc124d990
+        println!("arr[2].b: {:p}", &arr[2].b); // arr[2].b: 0x7ffdc124d988
+    }
+
     println!("end")
 }
 

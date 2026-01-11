@@ -27,6 +27,39 @@ print arr
 
 ```
 
+## Padding example
+
+```rust
+struct MyStruct {
+    a: i32,
+    b: i64,
+}
+```
+
+- as you can see, it takes 12 bytes
+- rust applies padding for `a` to make it `size % 8 == 0` in order to minimize amount of instructions with the cost of memory
+- `println!("Size = {}", std::mem::size_of::<MyStruct>()); // Size = 16`
+
+    ```rust
+    let arr = [
+        MyStruct { a: 1, b: 2 },
+        MyStruct { a: 3, b: 4 },
+        MyStruct { a: 5, b: 6 },
+    ];
+    println!("arr[0].a: {:p}", &arr[0].a); // arr[0].a: 0x7ffdc124d970
+    println!("arr[0].b: {:p}", &arr[0].b); // arr[0].b: 0x7ffdc124d968
+    println!("arr[1].a: {:p}", &arr[1].a); // arr[1].a: 0x7ffdc124d980
+    println!("arr[1].b: {:p}", &arr[1].b); // arr[1].b: 0x7ffdc124d978
+    println!("arr[2].a: {:p}", &arr[2].a); // arr[2].a: 0x7ffdc124d990
+    println!("arr[2].b: {:p}", &arr[2].b); // arr[2].b: 0x7ffdc124d988
+    ```
+
+- <img src="./_forReadme/image.png" />
+
+  - image taken from <https://stas-norochevskiy.gitbook.io/roll-in-to-rust>
+
+- Unlike C lang, Rust can change order of fields in the struct. To keep order use annotation `#[repr(C)]`
+
 ## Code editor + debugger
 
 Codium with these plugins:
