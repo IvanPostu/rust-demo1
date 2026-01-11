@@ -109,4 +109,48 @@ fn main() {
         println!("Array is {arr:?}");
     }
     // by default array in the function scope is stored on stack
+
+    // vector usage
+    // vector has pointer to the first element in heap, len and capacity
+    // initial size is not standardized
+    {
+        let mut my_vec: Vec<i32> = Vec::with_capacity(10);
+        my_vec.push(1);
+        my_vec = Vec::new();
+        my_vec.push(1);
+        my_vec.push(2);
+        my_vec.push(3);
+
+        let third: i32 = my_vec[2];
+        println!("3-rd element: {}", third);
+    }
+
+    {
+        let my_vec = vec![1, 2, 3];
+        let third: i32 = my_vec[2];
+        println!("3-rd element: {}", third);
+    }
+
+    // slice is a real data which is composed of: address to the first element and length
+    {
+        let arr = [0, 1, 2, 3, 4];
+        let slice: &[i32] = &arr[2..=4];
+        println!("{}", slice.len()); // 3
+        println!("{}", slice[2]); //  4
+    }
+
+    {
+        let mut v: Vec<i32> = Vec::with_capacity(5);
+        v.push(0);
+        v.push(1);
+        v.push(2);
+        v.push(3);
+
+        let slice: &mut [i32] = &mut v[1..3];
+        slice[0] = 9;
+
+        println!("v[1]: {}", v[1]); // 9
+    }
+
+    println!("end")
 }
