@@ -297,6 +297,83 @@ fn main() {
         println!("Even numbers: {evens:?}");
     }
 
+    // ownership
+    {
+        let s1 = String::from("some string");
+        let s2 = s1; // calls destructor for s1
+                     // s1 is unaccessible, attempt to access it will cause compile time error
+
+        // borrow-checker - mechanism of rust that guarantees that freed variable can't be accessed
+
+        // ownership is modified in the next cases:
+        // assignment
+        // call a function with argument
+        // return from a function
+        // closure
+
+        println!("s2={}", s2);
+    }
+
+    {
+        fn len_of_string(s: String) -> (String, usize) {
+            let length = s.len();
+            (s, length)
+        }
+
+        let s = String::from("aaa");
+        let (s, len) = len_of_string(s);
+        println!("Len of {s} is {len}");
+    }
+
+    // rust has function pub fn drop<T>(_x: T) {}
+    // it does nothing, just takes ownership and automatically deletes/frees variable
+
+    {
+        // ownership change doesn't work for primitives, primitives are copied
+        let i32: i32 = 1;
+        #[allow(dropping_copy_types)]
+        drop(i32);
+        println!("i32={}", i32);
+    }
+
+    // borrowing, caller still holds ownership even on call
+    {
+        // normally instead of s: &String is used string literal s: &str
+        fn len_of_string(s: &String) -> (&String, usize) {
+            let length = s.len();
+            (s, length)
+        }
+
+        let s1 = String::from("aaa");
+        let (s, len) = len_of_string(&s1);
+        println!("Len of {s} is {len}, s1={s1}");
+    }
+
+    // The Rule (The Borrowing Rule)
+    // For any value in Rust at any point in time, you can have either:
+    // Exactly one mutable reference (&mut), or
+    // Any number of immutable (readonly) references (&)
+    // …but never both at the same time.
+    {
+        let mut s = String::from("x");
+
+        let r1 = &mut s;
+        // let r2 = &s; // compile time error
+
+        println!("r1 = {r1}");
+    }
+
+    {
+        let arr = [String::from("1"), String::from("2"), String::from("3")];
+
+        // if it is not reference, then println!("{arr:?}"); will fail with borrow error
+        for n in &arr {
+            println!("{n}");
+        }
+
+        println!("{arr:?}");
+    }
+
     println!("end")
 }
 
