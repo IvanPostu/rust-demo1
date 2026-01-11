@@ -711,6 +711,267 @@ fn main() {
 
     // The difference between C++ and rust is that C++ generates *.o file for each .h/.cpp source file while rust merges all modules in one .o file
 
+    // Trait - i.e. interface in java or virtual class in c++
+    {
+        trait CanIntroduce {
+            fn introduce(&self) -> String;
+        }
+
+        struct Person {
+            name: String,
+        }
+
+        impl CanIntroduce for Person {
+            fn introduce(&self) -> String {
+                format!("Hello, I'm {}", self.name)
+            }
+        }
+
+        let person = Person {
+            name: String::from("John"),
+        };
+
+        println!("{}", person.introduce()); // Hello, I'm John
+
+        // Polymorphism
+        // static dispatching - impl Трэйт
+        // dynamic dispatching - dyn Трэйт
+
+        struct Dog {
+            #[allow(dead_code)]
+            name: String,
+        }
+
+        impl CanIntroduce for Dog {
+            fn introduce(&self) -> String {
+                String::from("Waf-waf")
+            }
+        }
+
+        fn print_introduction(v: &impl CanIntroduce) {
+            println!("Value says: {}", v.introduce());
+        }
+
+        let person = Person {
+            name: String::from("John"),
+        };
+        let dog = Dog {
+            name: String::from("Bark"),
+        };
+
+        print_introduction(&person); // Value says: Hello, I'm John
+        print_introduction(&dog); // Value says: Waf-waf
+
+        // for static polymorphism compiler generates a version of method for each type
+        // print_introduction_$Person(&person);
+        // print_introduction_$Dog(&dog);
+
+        // v keeps 2 addresses, first to the actual object and the second to vtable for specific type
+        // vtable - table or virtual calls
+        // it basically does: vtable.lookup("introduce").call()
+        // dyn Trait - is composed of reference to the object and reference to vtable is named trait object
+        fn print_introduction_dyn(v: &dyn CanIntroduce) {
+            println!("Value says: {}", v.introduce());
+        }
+        print_introduction_dyn(&person); // Value says: Hello, I'm John
+        print_introduction_dyn(&dog); // Value says: Waf-waf
+
+        // static trait can be passed via value and address
+        // dynamic trait can be passed via address and pointer
+    }
+
+    // implementing traits for foreign/stranger types
+    {
+        trait CanIntroduce {
+            fn introduce(&self) -> String;
+        }
+
+        struct Person1 {
+            name: String,
+        }
+
+        struct Dog1 {
+            #[allow(dead_code)]
+            name: String,
+        }
+
+        impl CanIntroduce for Dog1 {
+            fn introduce(&self) -> String {
+                String::from("Waf-waf")
+            }
+        }
+
+        impl CanIntroduce for Person1 {
+            fn introduce(&self) -> String {
+                format!("Hello, I'm {}", self.name)
+            }
+        }
+
+        impl CanIntroduce for &str {
+            fn introduce(&self) -> String {
+                String::from("I am string slice")
+            }
+        }
+
+        impl CanIntroduce for i32 {
+            fn introduce(&self) -> String {
+                String::from("I am integer")
+            }
+        }
+
+        fn print_introduction(v: impl CanIntroduce) {
+            println!("Value says: {}", v.introduce());
+        }
+
+        print_introduction("a"); // Value says: I am string slice
+        print_introduction(5); // Value says: I am integer
+
+        // Orphan rule - restriction, we can't implement foreign trait for foreign type
+        // either type or trait should be our
+
+        // return Trait
+        fn _make_someone(is_person: bool) -> impl CanIntroduce {
+            if is_person {
+                return Person1 {
+                    name: String::from("John"),
+                };
+            }
+            return Person1 {
+                name: String::from("John"),
+            };
+
+            // can't return 2 different types
+            // else {
+            //     Dog { name: String::from("Bark") }
+            // }
+        }
+
+        // dyn can return different types
+        fn make_someone_dyn(is_person: bool) -> Box<dyn CanIntroduce> {
+            if is_person {
+                // we can't return &dyn Trait because it will be stored inside the stack and it will be erased as soon as method exits
+                Box::new(Person1 {
+                    name: String::from("John"),
+                })
+            } else {
+                Box::new(Dog1 {
+                    name: String::from("Bark"),
+                })
+            }
+        }
+
+        let person = make_someone_dyn(true);
+        let dog = make_someone_dyn(false);
+
+        fn print_introduction_dyn(v: &dyn CanIntroduce) {
+            println!("Value says: {}", v.introduce());
+        }
+
+        print_introduction_dyn(person.as_ref());
+        print_introduction_dyn(dog.as_ref());
+
+        // Box an wrapper that keeps address in the heap
+    }
+
+    // default methods
+    {
+        trait CanIntroduce {
+            fn say_name(&self) -> String;
+            fn introduce(&self) -> String {
+                format!("Hello, I am {}", self.say_name())
+            }
+        }
+
+        struct Person {
+            name: String,
+        }
+
+        impl CanIntroduce for Person {
+            fn say_name(&self) -> String {
+                self.name.clone()
+            }
+        }
+
+        let person = Person {
+            name: String::from("John"),
+        };
+        println!("{}", person.introduce()); // Hello, I am John
+    }
+
+    // trait inheritance
+    {
+        trait HasName {
+            fn say_name(&self) -> String;
+        }
+
+        trait CanIntroduce: HasName {
+            fn introduce(&self) -> String;
+        }
+
+        struct Person {
+            name: String,
+        }
+
+        impl CanIntroduce for Person {
+            fn introduce(&self) -> String {
+                format!("Hello, I am {}", self.say_name())
+            }
+        }
+        // required, or else compile time error!
+        impl HasName for Person {
+            fn say_name(&self) -> String {
+                self.name.clone()
+            }
+        }
+
+        let person = Person {
+            name: String::from("John"),
+        };
+        println!("{}", person.introduce()); // Hello, I am John
+
+        // combine types/traits
+        fn _print_worker_introduction(_v: &(impl CanIntroduce + HasName)) {}
+    }
+
+    // Self - means object of type that implements the trait
+    {
+        trait HasDefaultConstructor {
+            fn make_default() -> Self;
+        }
+
+        struct Person {
+            name: String,
+        }
+
+        impl HasDefaultConstructor for Person {
+            fn make_default() -> Self {
+                // -> Person | Self is also valid
+                Person {
+                    name: "Anonymous".to_string(),
+                }
+            }
+        }
+
+        let p = Person::make_default();
+        println!("Default name: {}", p.name);
+    }
+
+    // unsafe trait
+    {
+        struct _MyStruct {
+            a: i32,
+            b: i64,
+        }
+
+        unsafe trait _MyTrait {
+            fn do_something_dangerous();
+        }
+
+        unsafe impl _MyTrait for _MyStruct {
+            fn do_something_dangerous() {}
+        }
+    }
+
     println!("end")
 }
 
