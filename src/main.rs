@@ -1,3 +1,6 @@
+mod mod1;
+mod mod2;
+
 const CONST_EXAMPLE: &str = "CONST_EXAMPLE"; // can't be created via String::from("value") because on compile time value should be known;
 static STATIC_EXAMPLE: i32 = 123;
 
@@ -678,6 +681,35 @@ fn main() {
         println!("arr[2].a: {:p}", &arr[2].a); // arr[2].a: 0x7ffdc124d990
         println!("arr[2].b: {:p}", &arr[2].b); // arr[2].b: 0x7ffdc124d988
     }
+
+    {
+        mod a {
+            pub fn get_num() -> i32 {
+                1
+            }
+        }
+
+        mod b {
+            pub fn get_num() -> i32 {
+                get_5()
+            }
+            // by default is private
+            fn get_5() -> i32 {
+                5
+            }
+        }
+
+        println!("{}", a::get_num());
+        println!("{}", b::get_num());
+
+        // module as file
+        println!("{}", mod1::get_num_5());
+
+        // module as folder
+        println!("{}", mod2::do_work(2));
+    }
+
+    // The difference between C++ and rust is that C++ generates *.o file for each .h/.cpp source file while rust merges all modules in one .o file
 
     println!("end")
 }
