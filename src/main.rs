@@ -200,6 +200,51 @@ fn main() {
         println!("{s}");
     }
 
+    // parenthesis for condition is ambiguous, generates warn
+    // {} for then else is required even for one statement
+    {
+        let a = -5;
+        let mod_a: i32 = if a < 0 { -a } else { a };
+        println!("{mod_a}"); // 5
+    }
+
+    // loop
+    {
+        let mut n = 5;
+        while n > 0 {
+            println!("{n}");
+            n -= 1;
+        }
+
+        // do-while emulation
+        while {
+            println!("do-while emulation");
+            false // condition
+        } {}
+
+        // while true
+        let r = loop {
+            println!("infinite loop emulation");
+            break 12;
+        };
+        println!("r={r}");
+
+        let arr = [10, 20, 30, 40, 50];
+
+        for element in arr {
+            println!("the value is: {}", element);
+        }
+        for i in 0..arr.len() {
+            // [0..arr.len()-1]
+            println!("Index: {}, Value: {}", i, arr[i]);
+        }
+        // rangeClosed()
+        for i in 0..=arr.len() {
+            // [0..arr.len()]
+            println!("Index: {}", i);
+        }
+    }
+
     println!("end")
 }
 
