@@ -1110,6 +1110,111 @@ fn main() {
         println!("Name={name}");
     }
 
+    // matching
+    {
+        let a = 1;
+        match a {
+            0 => println!("The number is 0"),
+            1 => println!("The number is 1"),
+            _ => (),
+        }
+        match a {
+            0 => println!("The number is 0"),
+            2 => println!("The number is 2"),
+            _ => println!("The number is not 0 or 2"),
+        }
+        match a {
+            0 => println!("The number is 0"),
+            2 => println!("The number is 2"),
+            x => println!("The number {x}"),
+        }
+        match a {
+            0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 => println!("The number is less than 10"),
+            _ => println!("The number is equal to or greater than 10"),
+        }
+        match a {
+            0..=9 =>
+            // от 0 до 9 inclusive
+            {
+                println!("The number is less than 10")
+            }
+            10..100 =>
+            // от 10 до 100 exclusive
+            {
+                println!("The number is in range [10,99]")
+            }
+            _ => println!("The number is equal to or greater than"),
+        }
+        match 22 + 22 {
+            x @ (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9) => println!("{x} is less than 10"),
+            x @ 10..100 => println!("{x} is in range [10,99]"),
+            x => println!("{x} is equal to or greater than"),
+        }
+
+        let b = -5;
+        let absolute = match b {
+            ..0 => -b,
+            _ => b,
+        };
+        println!("{absolute}");
+
+        // matching for strings should use slice
+        let name = String::from("Robert Smith");
+        let is_anonymous = match name.as_str() {
+            "Anonymous" | "John Doe" => true,
+            _ => false,
+        };
+        println!("{is_anonymous}");
+
+        // match statement for vector's slice
+        let v = vec![1, 2, 3, 4, 5];
+        let s = match v.as_slice() {
+            [] => 0,
+            [a, b, c, ..] => a + b + c,
+            _ => -1,
+        };
+
+        println!("{}", s); // 6
+
+        #[derive(Debug)]
+        struct Person {
+            name: String,
+            age: u32,
+        }
+
+        let p = Person {
+            name: String::from("John"),
+            age: 17,
+        };
+        match p {
+            Person {
+                ref name,
+                age: 1..18,
+            } => println!("Person {name} is not adult"),
+            Person { ref name, age: 18 } => println!("Person {name} just turned 18"),
+            Person { ref name, .. } => println!("Person {name} is adult"),
+        }
+        println!("rest={:?}", p);
+
+        match p {
+            Person { name, age } if age < 18 => println!("Person {name} is not adult"),
+            Person { name, age } if age == 18 => println!("Person {name} just turned 18"),
+            Person { name, .. } => println!("Person {name} is adult"),
+        }
+
+        let mut p = Person {
+            name: String::from("Anonymous"),
+            age: 25,
+        };
+        match p {
+            Person { ref mut name, .. } if name == "Anonymous" => {
+                *name = "John Doe".to_string();
+            }
+            Person { .. } => (),
+        }
+        println!("{p:?}"); // Person { name: "John Doe", age: 17 }
+    }
+
     println!("end")
 }
 
