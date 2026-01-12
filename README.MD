@@ -66,6 +66,18 @@ Codium with these plugins:
 
 <img src="./_forReadme/image1.png" />
 
+## Q&A
+
+- Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
+  - `Generic parameters (<T>)` - the caller choses T `parser.parse::<String>();`
+  - `Associated types (type T;)` - The implementor chooses `Output`
+
+    ```java
+    impl Parser for JsonParser {
+        type Output = String;
+    }
+    ```
+
 ## References
 
 1. <https://stas-norochevskiy.gitbook.io/roll-in-to-rust>

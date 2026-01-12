@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 mod mod1;
 mod mod2;
 
@@ -1422,6 +1424,309 @@ fn main() {
         let b = dec.as_ref()(a);
         let c = dec(a);
         println!("{b} {c}"); // 1
+    }
+
+    // generics - a mechanism of functional programming languages that allows working with a generalized type rather than specific type
+    {
+        // T is (generic type argument)
+        #[derive(Debug)]
+        struct Holder<T> {
+            #[allow(dead_code)]
+            v: T,
+        }
+
+        let bool_holder: Holder<bool> = Holder { v: true };
+        let i32_holder: Holder<i32> = Holder { v: 5 };
+        let string_holder: Holder<String> = Holder {
+            v: "aaa".to_string(),
+        };
+
+        println!("{:?}", bool_holder);
+        println!("{:?}", i32_holder);
+        println!("{:?}", string_holder);
+
+        fn make_holder<T>(v: T) -> Holder<T> {
+            Holder { v: v }
+        }
+
+        impl<T> Holder<T> {
+            fn get(&self) -> &T {
+                &self.v
+            }
+            fn set(&mut self, new_v: T) {
+                self.v = new_v;
+            }
+        }
+
+        let mut bool_holder_2: Holder<bool> = make_holder(true);
+        println!("{:?}", bool_holder_2.get());
+        bool_holder_2.set(false);
+        println!("{:?}", bool_holder_2.get());
+
+        // Monomorphization in Rust is the process where the compiler turns generic code into concrete, non-generic code by generating a specialized version for each type it’s used with.
+        // struct Holder_i32 {
+        //     v: i32,
+        // }
+        // struct Holder_bool {
+        //     v: bool,
+        // }
+        // exactly same rule works for functions
+        // make_holder(true); -> make_holder_bool(true);
+
+        let h = make_holder(1); // compiler determined T
+        println!("{:?}", h.get());
+
+        // but for this compiler can't determine the type implicitly
+        fn make_empty_vec<T>() -> Vec<T> {
+            Vec::new()
+        }
+        let v1: Vec<i32> = make_empty_vec();
+        let v2 = make_empty_vec::<i32>(); // turbofish ::<>
+        println!("{:?}", v1);
+        println!("{:?}", v2);
+    }
+
+    {
+        trait CanBeAccessed<T> {
+            fn get(&self) -> &T;
+            fn set(&mut self, new_v: T);
+        }
+
+        trait HasGenericConstructor<T> {
+            fn new(value: T) -> Self;
+        }
+
+        struct Holder<T> {
+            v: T,
+        }
+
+        impl<T> CanBeAccessed<T> for Holder<T> {
+            fn get(&self) -> &T {
+                &self.v
+            }
+            fn set(&mut self, new_v: T) {
+                self.v = new_v;
+            }
+        }
+
+        impl<T> HasGenericConstructor<T> for Holder<T> {
+            fn new(value: T) -> Self {
+                Holder { v: value }
+            }
+        }
+
+        let mut h = Holder::new(5);
+        h.set(7);
+        println!("{:?}", h.get());
+    }
+
+    // Associative type
+    // same example but using associative type
+    {
+        trait CanBeAccessed {
+            type T;
+
+            fn get(&self) -> &Self::T;
+            fn set(&mut self, new_v: Self::T);
+        }
+
+        trait HasGenericConstructor {
+            type T;
+            fn new(value: Self::T) -> Self;
+        }
+
+        struct Holder<T> {
+            v: T,
+        }
+
+        impl<TT> CanBeAccessed for Holder<TT> {
+            type T = TT;
+            fn get(&self) -> &TT {
+                &self.v
+            }
+            fn set(&mut self, new_v: TT) {
+                self.v = new_v;
+            }
+        }
+
+        impl<TT> HasGenericConstructor for Holder<TT> {
+            type T = TT;
+            fn new(value: TT) -> Self {
+                Holder { v: value }
+            }
+        }
+
+        let mut h = Holder::new(5);
+        h.set(7);
+        println!("{:?}", h.get());
+    }
+
+    {
+        // explicit specific type for (Associative Type)
+        trait CanBeAccessed {
+            type ElementType;
+            fn get(&self) -> &Self::ElementType;
+            fn set(&mut self, new_v: Self::ElementType);
+        }
+
+        struct I32Holder {
+            v: i32,
+        }
+
+        impl CanBeAccessed for I32Holder {
+            type ElementType = i32;
+            fn get(&self) -> &i32 {
+                &self.v
+            }
+            fn set(&mut self, new_v: i32) {
+                self.v = new_v;
+            }
+        }
+
+        let mut h = I32Holder { v: 5 };
+        h.set(7);
+        println!("{:?}", h.get());
+    }
+
+    {
+        trait CanIntroduce {
+            fn introduce(&self) -> String;
+        }
+
+        trait Dummy {}
+
+        #[derive(Debug)]
+        struct Person {
+            name: String,
+        }
+        #[derive(Debug)]
+        struct Dog {
+            _name: String,
+        }
+
+        impl CanIntroduce for Person {
+            fn introduce(&self) -> String {
+                format!("Hello, I'm {}", self.name)
+            }
+        }
+
+        impl CanIntroduce for Dog {
+            fn introduce(&self) -> String {
+                String::from("Waf-waf")
+            }
+        }
+
+        impl Dummy for Person {}
+        impl Dummy for Dog {}
+
+        fn print_introduction<T: CanIntroduce>(v: &T) {
+            println!("{}", v.introduce());
+        }
+        fn _print_introduction1(v: &impl CanIntroduce) {
+            // same as print_introduction
+            println!("Value says: {}", v.introduce());
+        }
+
+        fn print_introduction_using_where<T, D>(v: &T, q: &D) -> ()
+        where
+            T: CanIntroduce,
+            D: Dummy + Debug,
+        {
+            println!("{}, {:?}", v.introduce(), q);
+        }
+
+        let person = Person {
+            name: String::from("John"),
+        };
+        let dog = Dog {
+            _name: String::from("Bark"),
+        };
+
+        print_introduction(&person); // Hello, I'm John
+        print_introduction(&dog); // Waf-waf
+        print_introduction_using_where(&person, &person); // Hello, I'm John
+        print_introduction_using_where(&dog, &dog); // Waf-waf
+    }
+
+    {
+        trait CanBeAccessed {
+            type ElementType;
+            fn get(&self) -> &Self::ElementType;
+        }
+
+        struct Holder<T> {
+            v: T,
+        }
+
+        impl<T> CanBeAccessed for Holder<T> {
+            type ElementType = T;
+            fn get(&self) -> &T {
+                &self.v
+            }
+        }
+
+        // fn transform_num<T>(
+        //     v: T,
+        //     f: impl Fn(T)->impl CanBeAccessed<ElementType=T> //`impl Trait` is not allowed in the return type of `Fn` trait bounds
+        // ) -> impl CanBeAccessed<ElementType=T> {
+        //      f(v)
+        // }
+
+        fn create_using<T, R, F>(v: T, f: F) -> R
+        where
+            F: Fn(T) -> R,
+            R: CanBeAccessed<ElementType = T>,
+        {
+            f(v)
+        }
+
+        let x = create_using(5, |x| Holder { v: x });
+        println!("Value says: {}", x.get());
+    }
+
+    {
+        struct Holder<T> {
+            v: T,
+        }
+
+        impl Holder<i32> {
+            fn inc(&mut self) {
+                self.v += 1;
+            }
+        }
+
+        let mut h = Holder { v: 1 };
+        h.inc();
+        let mut _h = Holder { v: "aaa" };
+        // h.inc(); // compile time error
+    }
+
+    {
+        struct Holder<T> {
+            v: T,
+        }
+
+        impl<T: Clone> Holder<T> {
+            fn clone_value(&self) -> T {
+                self.v.clone()
+            }
+        }
+
+        let h = Holder {
+            v: "text".to_string(),
+        };
+        let s2 = h.clone_value();
+        println!("{s2}");
+    }
+
+    {
+        // const generic - use case to create array of specific size for specific type
+        fn make_array<T: Copy, const SIZE: usize>(init_value: T) -> [T; SIZE] {
+            [init_value; SIZE]
+        }
+
+        let arr: [i32; 5] = make_array::<i32, 5>(1);
+        println!("{arr:?}"); // [1, 1, 1, 1, 1]
     }
 
     println!("end")
