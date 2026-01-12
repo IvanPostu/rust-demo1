@@ -1040,6 +1040,76 @@ fn main() {
         // p1=Point2D { x: 1, y: 1 }, p2=Point2D { x: 1, y: 1 }
     }
 
+    // destructuring
+    {
+        // tuple
+        let employee: (&str, i32, bool) = ("John Doe", 1980, true);
+        let (name, birth_year, is_active_employee) = employee;
+        println!("name={name}, birth_year={birth_year}, is_active_employee={is_active_employee}");
+    }
+
+    {
+        // nested tuples
+        let tup: (i32, char, bool, (i32, i32, i32)) = (1, 'z', true, (7, 7, 7));
+        let (num, c, _, t) = tup;
+        println!("num={}, char={}, triplet={:?}", num, c, t);
+    }
+    {
+        // destructure nested tuples
+        let tup: (i32, char, bool, (i32, i32, i32)) = (1, 'z', true, (7, 8, 9));
+        let (num, c, _, (d1, d2, d3)) = tup;
+        println!("num={num}, char={c}, d1={d1}, d2= {d2}, d3={d3}");
+    }
+
+    // destructuring arrays
+    {
+        let arr: [i32; 3] = [1, 2, 3];
+        let [a1, a2, a3] = arr;
+        println!("a1={a1}, a2={a2}, a3={a3}");
+    }
+    {
+        // ignore remaining
+        let arr: [i32; 5] = [1, 2, 3, 4, 5];
+        let [a_1, _, a_3, ..] = arr;
+        println!("a1={}, a3={}", a_1, a_3);
+    }
+
+    {
+        // tail as sub-array
+        let arr: [i32; 5] = [1, 2, 3, 4, 5];
+        let [a_1, _, a_3, rest @ ..] = arr;
+        println!("a1={}, a3={}, rest={:?}", a_1, a_3, rest);
+    }
+
+    {
+        // destructure struct
+        struct Person {
+            name: String,
+            age: u32,
+        }
+
+        let p = Person {
+            name: String::from("John"),
+            age: 25,
+        };
+        let Person { name, age } = p;
+        println!("Name={}, Age={}", name, age);
+    }
+    {
+        // destructure only needed fields
+        struct Person {
+            name: String,
+            _age: u32,
+        }
+
+        let p = Person {
+            name: String::from("John"),
+            _age: 25,
+        };
+        let Person { name, .. } = p;
+        println!("Name={name}");
+    }
+
     println!("end")
 }
 
