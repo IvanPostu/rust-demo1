@@ -1215,6 +1215,215 @@ fn main() {
         println!("{p:?}"); // Person { name: "John Doe", age: 17 }
     }
 
+    // Anonymous functions (Lambda functions)
+    // functional programming sh*t
+    {
+        let inc: fn(i32) -> i32 = |x: i32| x + 1;
+        let a = 1;
+        let b = inc(a);
+        println!("{b}"); // 2
+
+        let _inc_1 = |x: i32| x + 1;
+        let _inc_2 = |x: i32| x + 1;
+    }
+
+    {
+        // HighOrderFunction - function that takes a function argument or return function
+
+        fn transform(a: i32, f: fn(i32) -> i32) -> i32 {
+            f(a)
+        }
+
+        let inc: fn(i32) -> i32 = |x: i32| x + 1;
+        let a = 9;
+        let b = transform(a, inc);
+        println!("{b}"); // 10
+    }
+    {
+        fn create_inc() -> fn(i32) -> i32 {
+            |x: i32| x + 1
+        }
+
+        let inc = create_inc();
+        let a = 1;
+        let b = inc(a);
+        println!("{b}"); // 2
+    }
+
+    // Anonymous function is compiled and moved to code segment space and on runtime the variable is a pointer to that function
+    {
+        fn func_inc(x: i32) -> i32 {
+            x + 1
+        }
+
+        let inc: fn(i32) -> i32 = func_inc;
+        let a = inc(7);
+        println!("{a}"); // 8
+    }
+
+    {
+        // compile time error: expected fn pointer, found closure
+        // fn make_inc_with_step(step: i32) -> fn(i32) -> i32 {
+        //     |x| x + step
+        // }
+    }
+    // the diff between closure and pure function is that:
+    // pure function's result only depends on it's args
+    // closure is a complex structure that grabs variables from the current context
+    {
+        fn make_inc_with_step(step: i32) -> impl Fn(i32) -> i32 {
+            // implement trait Fn
+            move |x| x + step // move tels to the compiler to grab variables in this context
+        }
+
+        let inc_with_5 = make_inc_with_step(5);
+        let a = inc_with_5(2);
+        println!("{a}"); // 7
+    }
+
+    // Closure types:
+    // Fn - can only read vars from the context, thread safe
+    // MutFn - same as Fn but can change by mutable reference, thread unsafe
+    // FnOnce - takes ownership by value and destroys them after execution
+
+    {
+        let salutation = "Hello".to_string();
+
+        let greet = |name: &str| make_greeting(&salutation, name);
+
+        println!("{}", greet("John")); // Hello John
+
+        print_string(salutation); // OK, data is still usable
+
+        fn make_greeting(salutation: &str, name: &str) -> String {
+            format!("{} {}", &salutation, name)
+        }
+
+        fn print_string(s: String) {
+            println!("{s}")
+        }
+    }
+
+    {
+        let salutation = "Hello".to_string();
+
+        let greet = |name: &str| make_greeting(salutation, name);
+
+        println!("{}", greet("John")); // Hello John
+
+        print_string("aaa".to_string());
+        // print_string(salutation); // Error: use of moved value: `salutation`
+
+        fn make_greeting(salutation: String, name: &str) -> String {
+            format!("{} {}", &salutation, name)
+        }
+
+        fn print_string(s: String) {
+            println!("{s}")
+        }
+    }
+
+    {
+        fn make_greeting(salutation: &String, name: &str) -> String {
+            format!("{} {}", &salutation, name)
+        }
+        fn make_greet_closure() -> impl Fn(&str) -> String {
+            let salutation = "Hello".to_string();
+            move |name: &str| make_greeting(&salutation, name)
+        }
+
+        println!("{}", make_greet_closure()(&"test"));
+    }
+
+    {
+        let mut step = 1;
+
+        // impl FnMut(i32)->i32
+        let mut growing_inc = |x: i32| {
+            let step_ref = &mut step;
+            let res = x + *step_ref;
+            *step_ref += 1;
+            res
+        };
+        println!("{}", growing_inc(1)); // 2
+        println!("{}", growing_inc(1)); // 3
+        println!("{}", growing_inc(1)); // 4
+    }
+
+    {
+        let mut step = 1;
+
+        // impl FnMut(i32)->i32
+        let mut growing_inc = |x: i32| {
+            let res = x + step;
+            step += x;
+            res
+        };
+        println!("{}", growing_inc(1)); // 2
+        println!("{}", growing_inc(1)); // 3
+        println!("{}", growing_inc(1)); // 4
+        println!("{}", step); // 4
+        step += 1;
+        println!("{}", step); // 5
+    }
+
+    {
+        fn print_and_destroy(s: String) {
+            println!("{s}");
+        }
+
+        let text = "text".to_string();
+        let print_and_destory_text = || print_and_destroy(text);
+        print_and_destory_text();
+        // print_and_destroy_text(); can't be called
+        // println!("{}", text); // text is destroyed
+    }
+
+    {
+        fn _make_inc_with_step(step: i32) -> impl Fn(i32) -> i32 {
+            move |x| x + step
+        }
+
+        // let inc_with_5: impl Fn(i32) -> i32 = make_inc_with_step(5);
+        // can't specify the type because it will be generated on compilation
+
+        // unstable (nightly) bullsh*t
+        // type MyFn = impl Fn(i32) -> i32;
+        // let inc_with_5: MyFn = make_inc_with_step(5);
+    }
+
+    {
+        // rustc --version - 1.82.0
+        fn make_inc(is_decrement: bool) -> impl Fn(i32) -> i32 {
+            if is_decrement {
+                move |x| x - 1
+            } else {
+                move |x| x + 1
+            }
+        }
+
+        let inc = make_inc(true);
+        let dec = make_inc(false);
+
+        println!("{}", inc(5)); // 4
+        println!("{}", dec(5)); // 6
+    }
+
+    {
+        fn make_inc(is_decrement: bool) -> Box<dyn Fn(i32) -> i32> {
+            if is_decrement {
+                Box::new(move |x| x - 1)
+            } else {
+                Box::new(move |x| x + 1)
+            }
+        }
+        let dec: Box<dyn Fn(i32) -> i32> = make_inc(true);
+        let a = 2;
+        let b = dec.as_ref()(a);
+        let c = dec(a);
+        println!("{b} {c}"); // 1
+    }
+
     println!("end")
 }
 
