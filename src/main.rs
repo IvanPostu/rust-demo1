@@ -2079,6 +2079,224 @@ fn main() {
         let _ = function_that_may_fail(); // Ignoring result/error
     }
 
+    // Custom iterator - a way to allow for loop for custom structs
+    {
+        struct MyVec<T>(Vec<T>);
+
+        struct MyVecIter<'a, T> {
+            data: &'a MyVec<T>,
+            current_ind: usize,
+        }
+
+        impl<T> MyVec<T> {
+            // custom method that returns iterator
+            fn iter(&self) -> MyVecIter<'_, T> {
+                MyVecIter {
+                    data: self,
+                    current_ind: 0,
+                }
+            }
+        }
+
+        impl<'a, T> Iterator for MyVecIter<'a, T> {
+            type Item = &'a T;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.current_ind < self.data.0.len() {
+                    let current_element = &self.data.0[self.current_ind];
+                    self.current_ind += 1;
+                    Some(current_element)
+                } else {
+                    None
+                }
+            }
+        }
+
+        let my_vec = MyVec(vec![1, 2, 3]);
+        let iterator = MyVecIter {
+            data: &my_vec,
+            current_ind: 0,
+        };
+        for n in iterator {
+            println!("{n} ");
+        }
+
+        let my_vec = MyVec(vec![1, 2, 3]);
+        for n in my_vec.iter() {
+            println!("{n}, ");
+        }
+
+        // iterate by reference
+        impl<'a, T> IntoIterator for &'a MyVec<T> {
+            type Item = &'a T;
+
+            type IntoIter = MyVecIter<'a, T>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                MyVecIter {
+                    data: self,
+                    current_ind: 0,
+                }
+            }
+        }
+
+        let my_vec = MyVec(vec![1, 2, 3]);
+
+        for n in &my_vec {
+            println!("{n}, ");
+        }
+    }
+
+    {
+        struct MyVec<T>(Vec<T>);
+
+        struct MyVecIterVal<T> {
+            data: MyVec<T>,
+        }
+
+        impl<T> MyVec<T> {
+            fn iter_val(self) -> MyVecIterVal<T> {
+                MyVecIterVal { data: self }
+            }
+        }
+
+        impl<T> Iterator for MyVecIterVal<T> {
+            type Item = T;
+            fn next(&mut self) -> Option<Self::Item> {
+                self.data.0.pop() // извлекаем и возвращаем первый элемент
+            }
+        }
+
+        impl<T> IntoIterator for MyVec<T> {
+            type Item = T;
+
+            type IntoIter = MyVecIterVal<T>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.iter_val()
+            }
+        }
+
+        let my_vec = MyVec(vec![1, 2, 3]);
+
+        for n in my_vec {
+            println!("{n}, ");
+        }
+    }
+
+    {
+        let v = vec![1, 2, 3];
+
+        // iter() is defined for Vec.
+        // element is ref.
+        // type i: &i32
+        #[allow(dead_code, unused_variables)]
+        for i in v.iter() {}
+
+        // On instance&Vec is called into_iter(),
+        // returns i: &i32
+        #[allow(dead_code, unused_variables)]
+        for i in &v {}
+
+        // explicit into_iter()
+        // consumes/destructs vector, type i: i32
+        #[allow(dead_code, unused_variables)]
+        for i in v.into_iter() {}
+
+        let v = vec![1, 2, 3];
+
+        // implicit into_iter()
+        // consumes/destructs vector, type i: i32
+        #[allow(dead_code, unused_variables)]
+        for i in v {}
+    }
+
+    {
+        let arr = [1, 2, 3];
+
+        // Iterate on ref. - i: &i32
+        #[allow(dead_code, unused_variables)]
+        for i in arr.iter() {}
+
+        // Iterate on ref. - i: &i32
+        #[allow(dead_code, unused_variables)]
+        for i in &arr {}
+
+        // Iterate on value - i: i32
+        #[allow(dead_code, unused_variables)]
+        for i in arr.into_iter() {}
+
+        // Iterate on value - i: i32
+        #[allow(dead_code, unused_variables)]
+        for i in arr {}
+    }
+
+    {
+        // range usage
+        use std::ops::Range;
+
+        let mut range: Range<i32> = 0..20;
+        println!("{:?}", range.next()); // Some(0)
+        println!("{:?}", range.next()); // Some(1)
+    }
+
+    {
+        // iterator has ~70 methods and works like Stream api in java
+        let v1 = vec![1, 2, 3, 4, 5];
+        let v2 = v1
+            .into_iter()
+            .filter(|x| x % 2 == 0)
+            .map(|x| x * x)
+            .collect::<Vec<_>>();
+        println!("{v2:?}"); // [4, 16]
+    }
+
+    {
+        // fold = reduce but with initial arg
+        let arr = [1, 2, 3];
+        let sum = arr.into_iter().fold(0, |x, y| x + y);
+        println!("{sum}"); // 6
+    }
+
+    {
+        let arr = [1, 2, 3];
+        let sum: Option<i32> = arr.into_iter().reduce(|x, y| x + y);
+        println!("{sum:?}"); // Some(6)
+    }
+
+    {
+        let arr = ["aa", "bbb", "cccc"];
+        let char_count = arr.iter().fold(0, |count, s| count + s.len());
+        println!("{char_count}"); // 9
+    }
+
+    {
+        let arr = [1, 2, 3];
+        let sum: i32 = arr.into_iter().sum();
+        println!("{sum}");
+    }
+
+    {
+        // filter_map = map(x->Option) + filter(isPresent)
+        fn safe_sqrt(n: f32) -> Option<f32> {
+            if n < 0.0 {
+                None
+            } else {
+                Some(n.sqrt())
+            }
+        }
+
+        let arr = [4.0, -25.0, 9.0];
+        let result = arr.into_iter().filter_map(safe_sqrt).collect::<Vec<_>>();
+        println!("{result:?}"); // [2.0, 3.0]
+    }
+
+    {
+        let arr = [1, 3, 5, 7, 8, 9];
+        let first_even: Option<i32> = arr.into_iter().find(|x| x % 2 == 0);
+        println!("{first_even:?}");
+    }
+
     println!("end")
 }
 
