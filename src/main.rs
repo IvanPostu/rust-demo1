@@ -736,8 +736,8 @@ fn main() {
         println!("{}", person.introduce()); // Hello, I'm John
 
         // Polymorphism
-        // static dispatching - impl Трэйт
-        // dynamic dispatching - dyn Трэйт
+        // static dispatching - impl Trait
+        // dynamic dispatching - dyn Trait
 
         struct Dog {
             #[allow(dead_code)]
@@ -2163,7 +2163,7 @@ fn main() {
         impl<T> Iterator for MyVecIterVal<T> {
             type Item = T;
             fn next(&mut self) -> Option<Self::Item> {
-                self.data.0.pop() // извлекаем и возвращаем первый элемент
+                self.data.0.pop()
             }
         }
 
@@ -2295,6 +2295,59 @@ fn main() {
         let arr = [1, 3, 5, 7, 8, 9];
         let first_even: Option<i32> = arr.into_iter().find(|x| x % 2 == 0);
         println!("{first_even:?}");
+    }
+
+    {
+        // smart pointer
+        // Box<T> - similar to unique_ptr in C++
+        // it represents an address in the stack that references a value in the heap
+        // Box::new(T)
+
+        #[derive(Debug)]
+        struct Point2D {
+            _x: i32,
+            _y: i32,
+        }
+
+        let p: Point2D = Point2D { _x: 5, _y: 2 };
+        let b: Box<Point2D> = Box::new(p);
+
+        println!("{:?}", b.as_ref());
+    }
+
+    {
+        // Single Linked List
+
+        #[derive(Debug)]
+        enum List<T> {
+            Nil,
+            #[allow(dead_code, unused_variables)]
+            Elem(T, Box<List<T>>),
+        }
+
+        use List::*;
+
+        let list: List<i32> = Elem(1, Box::new(Elem(2, Box::new(Elem(3, Box::new(Nil))))));
+        println!("{:?}", list); // Elem(1, Elem(2, Elem(3, Nil)))
+    }
+
+    {
+        use std::ops::{Deref, DerefMut};
+
+        let mut b = Box::new(1);
+        // *(b.deref_mut()) (when mutable)
+        // *(b.deref()) (when immutable)
+        *b = 2;
+        println!("{b}"); // 2
+        *(b.deref_mut()) = 7;
+        println!("{}", *(b.deref())); // 7
+
+        increment(&mut b);
+        println!("{b}"); // 3
+
+        fn increment(i: &mut i32) {
+            *i += 1;
+        }
     }
 
     println!("end")
