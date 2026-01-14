@@ -1851,6 +1851,17 @@ fn main() {
         }
     }
 
+    // Option type - analogue of Optional in java
+    // NullPointerException(Java) - SegmentationError(C)
+
+    {
+        let mut maybe_i32: Option<i32>;
+        maybe_i32 = Some(5);
+        println!("{:?}", maybe_i32);
+        maybe_i32 = None;
+        println!("{:?}", maybe_i32);
+    }
+
     println!("end")
 }
 
