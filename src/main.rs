@@ -1862,6 +1862,63 @@ fn main() {
         println!("{:?}", maybe_i32);
     }
 
+    // Some(T).unwrap(); -> T
+    {
+        let o: Option<i32> = Some(5);
+        let i: i32 = o.unwrap();
+        println!("{}", i);
+    }
+
+    {
+        let o: Option<i32> = None;
+        let i: i32 = o.unwrap_or(1);
+        println!("{}", i);
+    }
+
+    {
+        let o: Option<i32> = Some(5);
+        let i: i32 = match o {
+            Some(v) => v,
+            None => 1,
+        };
+        println!("{}", i);
+    }
+
+    {
+        let o: Option<i32> = Some(5);
+        if let Some(v) = o {
+            println!("Number is {v}");
+        } else {
+            println!("Number is empty");
+        };
+    }
+
+    {
+        let s1: Option<i32> = Some(5);
+        let s2: Option<i32> = s1.map(|a| {
+            return a + 1;
+        });
+        println!("{s2:?}"); // Some(6)
+
+        let e1: Option<i32> = None;
+        let e2: Option<i32> = e1.map(|a| a + 1);
+        println!("{e2:?}"); // None
+    }
+
+    {
+        let o1: Option<i32> = Some(1);
+        let o2: Option<Option<i32>> = o1.map(|a| Some(a + 1)); // Some(Some(2))
+        let o3: Option<i32> = o2.flatten(); // Some(2)
+        println!("{o3:?}"); // None
+    }
+
+    {
+        // and_then - map + flatten
+        let o1: Option<i32> = Some(1);
+        let o2: Option<i32> = o1.and_then(|a| Some(a + 1)); // Some(2)
+        println!("{o2:?}");
+    }
+
     println!("end")
 }
 
