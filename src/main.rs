@@ -1729,6 +1729,128 @@ fn main() {
         println!("{arr:?}"); // [1, 1, 1, 1, 1]
     }
 
+    // enums
+    {
+        #[derive(Debug)]
+        enum IpAddrKind {
+            V4,
+            V6,
+        }
+
+        let ip_v4 = IpAddrKind::V4;
+        let ip_v6 = IpAddrKind::V6;
+
+        println!("{:?}, {:?}", ip_v4, ip_v6);
+
+        enum HttpStatus {
+            Ok = 200,
+            NotModified = 304,
+            NotFound = 404,
+        }
+
+        println!("{}", HttpStatus::Ok as usize);
+        println!("{}", HttpStatus::NotModified as usize);
+        println!("{}", HttpStatus::NotFound as usize);
+    }
+
+    {
+        // enum can store tuples
+        #[derive(Debug)]
+        enum IpAddr {
+            #[allow(dead_code)]
+            V4(u8, u8, u8, u8),
+            #[allow(dead_code)]
+            V6(String),
+        }
+
+        let home = IpAddr::V4(127, 0, 0, 1);
+        let loopback = IpAddr::V6(String::from("::1"));
+
+        println!("{:?}", home);
+        println!("{:?}", loopback);
+    }
+
+    {
+        enum Shape {
+            Square { width: f32 },
+            Rectangle { width: f32, height: f32 },
+        }
+        impl Shape {
+            fn calc_area(&self) -> f32 {
+                match self {
+                    Shape::Square { width } => width * width,
+                    Shape::Rectangle { width, height } => width * height,
+                }
+            }
+        }
+
+        fn calc_area(shape: &Shape) -> f32 {
+            match shape {
+                Shape::Square { width } => width * width,
+                Shape::Rectangle { width, height } => width * height,
+            }
+        }
+
+        let square = Shape::Square { width: 4.0 };
+        println!("{}", calc_area(&square));
+        println!("{}", square.calc_area());
+
+        let rect = Shape::Rectangle {
+            height: 2.2,
+            width: 9.0,
+        };
+        println!("{}", calc_area(&rect));
+        println!("{}", square.calc_area());
+    }
+
+    // In Rust, algebraic data types (ADTs) are a way to define types by combining other types.
+    // Enums in Rust are one of the main ways to create ADTs, and they capture the essence of “sum types” from type theory.
+    // Sum type (choice): A value can be one of several variants - Rust's Enum
+    // Product type (combination): A value contains multiple pieces of data at once. - Rust's struct
+
+    {
+        enum Shape {
+            Square {
+                width: f32,
+            },
+            #[allow(dead_code)]
+            Rectangle {
+                width: f32,
+                height: f32,
+            },
+        }
+        let s = Shape::Square { width: 4.0 };
+        if let Shape::Square { width } = s {
+            println!("This is square of width {width}");
+        }
+    }
+
+    {
+        #[derive(Debug)]
+        enum MyEnum {
+            #[allow(dead_code)]
+            Byte(u8),
+            #[allow(dead_code)]
+            UInt(u32),
+        }
+
+        let arr = [MyEnum::Byte(1), MyEnum::UInt(5)];
+        // | discriminator (can be u8 up to u32) | u8  | padding to align to largest variant size |
+        // | discriminator (can be u8 up to u32) | u32 | no padding                               |
+
+        println!("{:?}", arr);
+    }
+
+    {
+        // HttpStatus::Ok - semantically is a singleton of type HttpStatus
+        #[allow(dead_code)]
+        enum HttpStatus {
+            Ok = 200,          // discriminator = 200
+            NotModified = 304, // discriminator = 304
+            NotFound = 404,    // discriminator = 404
+        }
+    }
+
     println!("end")
 }
 
