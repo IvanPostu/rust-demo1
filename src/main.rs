@@ -1919,6 +1919,166 @@ fn main() {
         println!("{o2:?}");
     }
 
+    // Result - wrapper type that holds Ok<T> and Err<E>
+    {
+        fn square_root(num: f32) -> Result<f32, String> {
+            if num < 0.0 {
+                Err("Cannot calculate for negative number".to_string())
+            } else {
+                Ok(num.sqrt())
+            }
+        }
+
+        println!("sqrt(-4) = {:?}", square_root(-4.0));
+        println!("sqrt(4) = {:?}", square_root(4.0));
+
+        match square_root(-4.0) {
+            Ok(v) => println!("sqrt(-4)={v}"),
+            Err(e) => println!("Cannot calculate sqrt(-4): {e}"),
+        }
+
+        let v = square_root(4.0).unwrap_or(0.0);
+        println!("sqrt(4)={v}");
+    }
+
+    {
+        #[derive(Debug)]
+        enum NameParseError {
+            EmptyString,
+            NoMiddleName,
+        }
+
+        fn get_middle_name(full_name: &str) -> Result<String, NameParseError> {
+            if full_name.is_empty() {
+                return Err(NameParseError::EmptyString);
+            }
+            let mut words = split_to_words(full_name);
+            if words.len() < 3 {
+                return Err(NameParseError::NoMiddleName);
+            }
+            let middle_name = words.remove(1);
+            Ok(middle_name)
+        }
+
+        fn split_to_words(text: &str) -> Vec<String> {
+            let mut words: Vec<String> = Vec::new();
+            let mut current_word = String::new();
+            for c in text.chars() {
+                if c.is_whitespace() {
+                    if !current_word.is_empty() {
+                        words.push(current_word);
+                        current_word = String::new();
+                    }
+                } else {
+                    current_word.push(c);
+                }
+            }
+            if !current_word.is_empty() {
+                words.push(current_word);
+            }
+            words
+        }
+
+        let m_name_1 = get_middle_name("");
+        println!("{m_name_1:?}"); // Err(EmptyString)
+
+        let m_name_2 = get_middle_name("John Doe");
+        println!("{m_name_2:?}"); // Err(NoMiddleName)
+
+        let m_name_3 = get_middle_name("Jim Connor Greg");
+        println!("{m_name_3:?}"); // Ok("Connor")
+    }
+
+    {
+        // Rust haveL std::error::Error
+        // all error types from the std library implement std::error::Error
+
+        #[derive(Debug)]
+        enum NameParseError {
+            EmptyString,
+            NoMiddleName,
+        }
+
+        impl std::fmt::Display for NameParseError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    NameParseError::EmptyString => write!(f, "Attempt to parse empty string"),
+                    NameParseError::NoMiddleName => write!(f, "No middle name found"),
+                }
+            }
+        }
+
+        impl std::error::Error for NameParseError {}
+
+        println!("{}", NameParseError::EmptyString);
+        println!("{}", NameParseError::NoMiddleName);
+    }
+
+    {
+        use std::fs::File;
+        use std::io::{prelude::*, Error};
+
+        fn read_text_file(file_name: &str) -> Result<String, Error> {
+            let mut file = match File::open(file_name) {
+                Ok(file) => file,
+                Err(e) => return Err(e),
+            };
+
+            let mut contents = String::new();
+            match file.read_to_string(&mut contents) {
+                Ok(_read_bytes) => Ok(contents),
+                Err(e) => return Err(e),
+            }
+        }
+
+        match read_text_file("/home/iv127/Projects/rust-demo1/shell.nix") {
+            Ok(txt) => println!("{}", txt),
+            Err(e) => println!("Failed, because {}", e),
+        }
+    }
+
+    {
+        use std::fs::File;
+        use std::io::{prelude::*, Error};
+
+        fn read_text_file(file_name: &str) -> Result<String, Error> {
+            File::open(file_name).and_then(|mut file| {
+                let mut contents = String::new();
+                file.read_to_string(&mut contents).map(|_| contents)
+            })
+        }
+
+        match read_text_file("/home/iv127/Projects/rust-demo1/shell.nix") {
+            Ok(txt) => println!("{}", txt),
+            Err(e) => println!("Failed, because {}", e),
+        }
+    }
+
+    // ? a language mechanism used in functions that return Result, if operation doesn't return result, the function returns Error automatically
+    {
+        use std::fs::File;
+        use std::io::{prelude::*, Error};
+
+        fn read_text_file(file_name: &str) -> Result<String, Error> {
+            let mut file = File::open(file_name)?;
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            Ok(contents)
+        }
+
+        match read_text_file("/home/iv127/Projects/rust-demo1/shell.nix") {
+            Ok(txt) => println!("{}", txt),
+            Err(e) => println!("Failed, because {}", e),
+        }
+    }
+
+    {
+        fn function_that_may_fail() -> Result<(), String> {
+            return Err("".to_string());
+        }
+        let _ = function_that_may_fail(); // Ignoring result/error
+    }
+
     println!("end")
 }
 
