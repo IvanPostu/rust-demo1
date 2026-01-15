@@ -137,6 +137,14 @@ Codium with these plugins:
   - cargo run --bin fibonacci_sum
   - cargo run --bin fibonacci_prod
   - cargo run --bin rust-demo1
+  - cargo build --bin fibonacci_sum
+
+- What is crate?
+  - An abstract unit that can be either lib or executable
+- What is a package?
+  - A full rust project which can have multiple executables `src/main.rs` and `src/bin/*.rs` and libs
+- What is a module?
+  - a file/folder with files which exports functions, structs, traits and impls
 
 ## References
 
