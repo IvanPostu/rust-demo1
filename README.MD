@@ -26,6 +26,11 @@ cargo build --release
 # run
 cargo run
 
+# crate = module
+
+# show dependency tree
+cargo tree
+
 # Run:
 $PROJECT_ROOT/target/release/rust-demo1
 
@@ -90,6 +95,12 @@ Codium with these plugins:
     }
     ```
 
+- `uuid = { version = "1.17.0", features = ["v4"] }`
+  - cargo will use latest `major.(minor.patch)` - 1.18.1, to force 1.17.0 write: `uuid = { version = "=1.17.0", features = ["v4"] }`
+
 ## References
 
 1. <https://stas-norochevskiy.gitbook.io/roll-in-to-rust>
+1. Dependency repository: <https://crates.io/>
+1. Rust tips and tricks: <https://github.com/awesome-rust-com/awesome-rust>
+1. Rust's versioning approach <https://semver.org/>

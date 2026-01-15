@@ -2478,6 +2478,20 @@ fn main() {
         println!("{:?}", counter);
     }
 
+    {
+        use rand::random;
+
+        let is_yes: bool = random();
+        println!("{}", if is_yes { "YES" } else { "NO" });
+    }
+
+    {
+        use uuid::Uuid;
+
+        let uuid_v4 = Uuid::new_v4();
+        println!("{uuid_v4}");
+    }
+
     println!("end")
 }
 
