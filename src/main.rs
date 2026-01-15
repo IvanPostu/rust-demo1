@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::Deref};
 
 mod mod1;
 mod mod2;
@@ -2348,6 +2348,128 @@ fn main() {
         fn increment(i: &mut i32) {
             *i += 1;
         }
+    }
+
+    {
+        use std::rc::Rc; // smart pointer that keeps counter of copies
+                         // when RC instance is destroyed, counter is decremented
+                         // if counter is 0 then counter is destroyed as well as the referenced value in heap
+                         // C++ analogue of shared_ptr
+                         // does not implement DerefMut, can't change value
+
+        let rc1 = Rc::new("Hello");
+        let rc2 = rc1.clone();
+
+        println!("{}", *(rc1.deref()));
+        println!("{}", *(rc2.deref()));
+    }
+
+    {
+        // Cell exposes atomic replace operation
+
+        use std::cell::Cell;
+
+        let mut cell = Cell::new("aaa".to_string());
+
+        let old_string = cell.replace("bbb".to_string());
+        println!("{old_string}");
+
+        cell.set("ccc".to_string());
+
+        let current = cell.get_mut();
+        println!("{}", current);
+
+        let cell1 = Cell::new(1);
+        println!("{}", cell1.get()); // c1 = 1, works only if T is Copyable
+    }
+
+    {
+        // Cell + Rc
+        use std::{cell::Cell, rc::Rc};
+
+        let rc1 = Rc::new(Cell::new(1));
+        let rc2 = rc1.clone();
+
+        rc2.as_ref().set(5);
+
+        println!("{:?}", rc1); // Cell { value: 5 }
+
+        // It is important to note that Cell only protects against scenarios where an immutable reference
+        // could be corrupted by modifying data through a mutable reference within a single thread.
+        // It does not provide any protection against data races.
+    }
+
+    {
+        // RefCell allows modifying value by ref
+
+        use std::cell::{RefCell, RefMut};
+
+        let ref_cell = RefCell::new(1);
+        {
+            let mut mut_ref: RefMut<'_, i32> = ref_cell.borrow_mut();
+            *mut_ref = 5;
+
+            // borrowing both mut and immut is forbidden
+            // let q = ref_cell.borrow();
+            // println!("{:?}", q);
+        }
+        println!("{:?}", ref_cell);
+    }
+
+    {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        #[derive(Debug)]
+        enum List<T> {
+            #[allow(dead_code, unused_variables)]
+            Elem(Rc<RefCell<T>>, Rc<List<T>>),
+            Nil,
+        }
+
+        use List::*;
+
+        let v = Rc::new(RefCell::new(1));
+
+        let a = Rc::new(Elem(Rc::clone(&v), Rc::new(Nil)));
+
+        let b = Elem(Rc::new(RefCell::new(2)), Rc::clone(&a));
+        let c = Elem(Rc::new(RefCell::new(3)), Rc::clone(&a));
+
+        *v.borrow_mut() += 10;
+        println!("a after = {:?}", a);
+        // Elem(RefCell { value: 11 }, Nil)
+
+        println!("b after = {:?}", b);
+        // Elem(RefCell { value: 2 }, Elem(RefCell { value: 11 }, Nil))
+
+        println!("c after = {:?}", c);
+        // Elem(RefCell { value: 3 }, Elem(RefCell { value: 11 }, Nil))
+    }
+
+    {
+        // Arc is same as RC but oriented for parallel programming
+
+        use std::sync::{Arc, Mutex, MutexGuard};
+        use std::thread;
+
+        let counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+
+        let mut threads = Vec::new();
+        for _ in 0..10 {
+            let counter_clone = counter.clone();
+            let t = thread::spawn(move || {
+                for _ in 0..50 {
+                    let mut mut_guard: MutexGuard<'_, i32> = counter_clone.lock().unwrap();
+                    *mut_guard += 1;
+                }
+            });
+            threads.push(t);
+        }
+        for t in threads {
+            let _ = t.join();
+        }
+        println!("{:?}", counter);
     }
 
     println!("end")
