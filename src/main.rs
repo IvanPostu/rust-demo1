@@ -2507,6 +2507,20 @@ fn main() {
     println!("end")
 }
 
+pub fn increment(a: i32) -> i32 {
+    a + 1
+}
+
+#[test]
+fn test_inc_1() {
+    assert_eq!(increment(1), 2);
+}
+
+#[test]
+fn test_inc_2() {
+    assert_eq!(increment(7), 8);
+}
+
 #[macro_export]
 macro_rules! custom_vec2 {
     () => { Vec::new() };

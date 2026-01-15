@@ -31,6 +31,33 @@ cargo run
 # show dependency tree
 cargo tree
 
+# run all tests
+cargo test
+# run specific test
+cargo test -- --exact my_module::test_inc_1
+# all unit-tests are built into a single file
+
+# Integration tests
+├── Cargo.toml
+├── src/
+│   ├── main.rs
+│   ├── module1.rs
+│   └── module2.rs
+└── tests/
+    ├── integration-tests_1.rs
+    └── integration-tests_2.rs
+
+# each test .rs file is a separate crate which is built into a executable
+
+cargo new test_project --lib
+
+cd test_project
+cargo test
+
+# dependency: nextest - gives more functionalities
+cargo install cargo-nextest --locked
+cargo nextest run
+
 # Run:
 $PROJECT_ROOT/target/release/rust-demo1
 
@@ -134,10 +161,10 @@ Codium with these plugins:
   - cargo will use latest `major.(minor.patch)` - 1.18.1, to force 1.17.0 write: `uuid = { version = "=1.17.0", features = ["v4"] }`
 
 - Additional executables are placed in `src/bin`
-  - cargo run --bin fibonacci_sum
-  - cargo run --bin fibonacci_prod
-  - cargo run --bin rust-demo1
-  - cargo build --bin fibonacci_sum
+  - `cargo run --bin fibonacci_sum`
+  - `cargo run --bin fibonacci_prod`
+  - `cargo run --bin rust-demo1`
+  - `cargo build --bin fibonacci_sum`
 
 - What is crate?
   - An abstract unit that can be either lib or executable
