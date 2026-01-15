@@ -2492,6 +2492,11 @@ fn main() {
         println!("{uuid_v4}");
     }
 
+    {
+        use my_lib::add;
+        println!("add(1,2)={}", add(1, 2));
+    }
+
     println!("end")
 }
 

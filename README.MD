@@ -44,6 +44,41 @@ print arr
 
 ```
 
+## Library
+
+```toml
+# main.rs -> lib.rs
+
+[lib]
+crate-type = ["lib"]
+
+# lib - can be any type of library, compatible with any other rust program
+# rlib - static rust library, *.rlib
+# dylib - rust only dynamic library .dll, .so, .dylib
+# cdylib - C compatible dynamic library .dll, .so, .dylib
+# staticlib - static *.a, *.lib C compatible
+# procmacro - library with procedural macros
+
+# lib - is the most popular
+# crate-type=["lib"]
+
+# in src/lib.rs
+# pub fn sum2(a: i32, b: i32) -> i32 {
+#     a + b
+# }
+
+# Cargo.toml deps. support
+
+[dependencies]
+crate = { git = "https://github.com/aa/qqq.git", branch = "main" }
+
+[dependencies]
+crate = { path = "/abc/deq" }
+
+[dependencies]
+crate = { version = "1.0", registry = "repository" }
+```
+
 ## Padding example
 
 ```rust
