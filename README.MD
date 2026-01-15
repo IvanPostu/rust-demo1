@@ -11,6 +11,18 @@ cargo build --release
 # create helloworld
 cargo new test_rust
 
+cargo new hello_world --bin
+#  --bin - executable (src/main.rs)
+#  --lib - library (src/lib.rs)
+# Cargo.toml - config file for the project
+# TOML (Tom's Obvious, Minimal Language)
+
+cargo build
+./target/debug/rust-demo1
+
+cargo build --release
+./target/release/rust-demo1
+
 # run
 cargo run
 
