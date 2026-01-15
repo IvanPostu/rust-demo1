@@ -2348,6 +2348,12 @@ fn main() {
         fn increment(i: &mut i32) {
             *i += 1;
         }
+
+        // let x = *(b.deref());
+        // let x = *b;
+
+        // *(b.deref_mut()) = 7;
+        // *b = 7;
     }
 
     {
