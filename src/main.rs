@@ -2497,6 +2497,13 @@ fn main() {
         println!("add(1,2)={}", add(1, 2));
     }
 
+    {
+        use my_lib::fibonacci::FibonacciSequence;
+
+        let s = FibonacciSequence(10).into_iter().collect::<Vec<_>>();
+        println!("First 10 elements of fibonacci sequence: {s:?}");
+    }
+
     println!("end")
 }
 

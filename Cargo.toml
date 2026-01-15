@@ -3,6 +3,19 @@ name = "rust-demo1"
 version = "0.1.0"
 edition = "2021"
 
+# custom name for main: rust-demo1 -> sequence_10
+[[bin]]
+name = "sequence_10"
+path = "src/main.rs"
+
+[[bin]]
+name = "sum_10"
+path = "src/bin/fibonacci_sum.rs"
+
+[[bin]]
+name = "prod_10"
+path = "src/bin/fibonacci_prod.rs"
+
 [dependencies]
 rand = "0.9"
 uuid = { version = "1", features = ["v4"] }

@@ -133,6 +133,11 @@ Codium with these plugins:
 - `uuid = { version = "1.17.0", features = ["v4"] }`
   - cargo will use latest `major.(minor.patch)` - 1.18.1, to force 1.17.0 write: `uuid = { version = "=1.17.0", features = ["v4"] }`
 
+- Additional executables are placed in `src/bin`
+  - cargo run --bin fibonacci_sum
+  - cargo run --bin fibonacci_prod
+  - cargo run --bin rust-demo1
+
 ## References
 
 1. <https://stas-norochevskiy.gitbook.io/roll-in-to-rust>
