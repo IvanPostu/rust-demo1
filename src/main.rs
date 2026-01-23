@@ -3175,6 +3175,72 @@ fn main() {
         println!("{os_string:?} - {os_str:?}");
     }
 
+    {
+        use std::{cmp::Ordering, fs::File, ops::Deref};
+
+        // Newtype обёртка для File.
+        struct FileWrapper(File);
+
+        impl PartialEq for FileWrapper {
+            fn eq(&self, other: &Self) -> bool {
+                match (self.0.metadata(), other.0.metadata()) {
+                    (Ok(m1), Ok(m2)) => m1.len() == m2.len(),
+                    _ => false,
+                }
+            }
+        }
+        impl Eq for FileWrapper {}
+
+        impl Ord for FileWrapper {
+            fn cmp(&self, other: &Self) -> Ordering {
+                match (self.0.metadata(), other.0.metadata()) {
+                    (Ok(m1), Ok(m2)) => m1.len().cmp(&m2.len()),
+                    _ => Ordering::Equal,
+                }
+            }
+        }
+
+        impl PartialOrd for FileWrapper {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl From<File> for FileWrapper {
+            fn from(value: File) -> Self {
+                FileWrapper(value)
+            }
+        }
+
+        impl Deref for FileWrapper {
+            type Target = File;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        fn _main1() {
+            let mut v: Vec<FileWrapper> = vec![
+                File::open("/etc/fstab").unwrap().into(),
+                File::open("/etc/resolv.conf").unwrap().into(),
+                File::open("/etc/hosts").unwrap().into(),
+            ];
+
+            println!("Before sorting");
+            for file in v.iter() {
+                println!("Size: {}", file.metadata().unwrap().len());
+            }
+
+            v.sort();
+
+            println!("After sorting");
+            for file in v.iter() {
+                println!("Size: {}", file.metadata().unwrap().len());
+            }
+        }
+    }
+
     println!("end")
 }
 

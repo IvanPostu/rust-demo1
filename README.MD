@@ -184,6 +184,11 @@ Codium with these plugins:
 
 - <img src="./_forReadme/image copy.png" />
 
+## Newtype pattern
+
+- Rust has orphan rule, if trait and struct are parts of other crate then we can't define new methods as a part of that trait
+- Solution is Newtype pattern (`struct NewType(ForeignType)`)
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
