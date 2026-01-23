@@ -3043,6 +3043,75 @@ fn main() {
         }
     }
 
+    {
+        use std::{collections::VecDeque, io::Read};
+
+        let mut v = VecDeque::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        let mut buf: [u8; 2] = [0; 2];
+
+        let read_bytes: Result<usize, std::io::Error> = v.read(&mut buf);
+        println!("Buffer: {buf:?}, Number of read bytes: {read_bytes:?}");
+
+        loop {
+            match v.read(&mut buf) {
+                Ok(read_bytes) if read_bytes > 0 => {
+                    println!("Buffer: {buf:?}, Number of read bytes: {read_bytes}");
+                }
+                _ => break,
+            }
+        }
+    }
+
+    {
+        use std::{collections::VecDeque, io::Read};
+
+        let mut v = VecDeque::from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+        let mut buf: Vec<u8> = Vec::new();
+        let read_bytes: Result<usize, std::io::Error> = v.read_to_end(&mut buf);
+        println!("Buffer: {buf:?}, Number of read bytes: {read_bytes:?}");
+        // Buffer: [1, 2, 3, 4, 5, 6, 7, 8, 9], Number of read bytes: Ok(9)
+    }
+
+    {
+        use std::{collections::VecDeque, io::Read};
+
+        // 65 - 'A', 66 - 'B', 67 - 'C', 68 - 'D', 69 - 'E'
+        let mut v = VecDeque::from(vec![65, 66, 67, 68, 69]);
+
+        let mut buf = String::new();
+        let read_bytes: Result<usize, std::io::Error> = v.read_to_string(&mut buf);
+        println!("Buffer: {buf}, Number of read bytes: {read_bytes:?}");
+        // Buffer: ABCDE, Number of read bytes: Ok(5)
+    }
+
+    {
+        use std::{io::Cursor, io::Read};
+
+        let v: Vec<u8> = vec![65, 66, 67, 68, 69];
+        let mut c: Cursor<Vec<u8>> = Cursor::new(v);
+        let mut buf = String::new();
+        let read_bytes: Result<usize, std::io::Error> = c.read_to_string(&mut buf);
+        println!("String: {buf}, Number of read bytes: {read_bytes:?}");
+    }
+
+    {
+        use std::io::Write;
+
+        let mut v: Vec<u8> = vec![1, 2, 3, 4, 5];
+        let count = v.write(&[6, 7, 8, 9]);
+        println!("Written: {count:?}, vec: {v:?}");
+        // Written: Ok(4), vec: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    }
+
+    {
+        use std::io::Write;
+
+        let mut stdout = std::io::stdout();
+        let _ = stdout.write(&[65, 66, 67, 68, 69, 10]);
+    }
+
     println!("end")
 }
 
