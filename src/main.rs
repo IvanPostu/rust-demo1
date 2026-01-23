@@ -4304,6 +4304,256 @@ fn main() {
         }
     }
 
+    {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Employee {
+            id: u64,
+            name: String,
+        }
+
+        let emp1 = Employee {
+            id: 1,
+            name: "John Doe".to_string(),
+        };
+        let json = serde_json::to_string(&emp1).unwrap();
+        println!("{json}"); // {"id":1,"name":"John Doe"}
+
+        let emp2: Employee =
+            serde_json::from_str(r#"{ "id" : 2, "name" : "Ivan Ivanov" }"#).unwrap();
+        println!("{emp2:?}"); // Employee { id: 2, name: "Ivan Ivanov" }
+    }
+
+    {
+        // work with Value
+        use serde_json::Value;
+
+        let v1: Value = serde_json::from_str("5").unwrap();
+        match v1 {
+            Value::Number(n) => println!("Number: {n}"),
+            _ => (),
+        }
+
+        let v2: Value = serde_json::from_str("\"text\"").unwrap();
+        match v2 {
+            Value::String(s) => println!("String: {s}"),
+            _ => (),
+        }
+
+        let v3: Value = serde_json::from_str("[1,2,3]").unwrap();
+        match v3 {
+            Value::Array(arr) => {
+                print!("Array:");
+                for e in arr {
+                    match e {
+                        Value::Number(n) => print!(" {n}"),
+                        _ => (),
+                    }
+                }
+                println!("");
+            }
+            _ => (),
+        }
+
+        let v4: Value = serde_json::from_str(
+            r#"
+                    {"id" : 1, "name" : "John Doe"}
+                "#,
+        )
+        .unwrap();
+        match v4 {
+            Value::Object(fields) => {
+                println!("Object:");
+                match fields.get("id") {
+                    Some(Value::Number(n)) => println!("  id = {n}"),
+                    _ => (),
+                };
+                match fields.get("name") {
+                    Some(Value::String(s)) => println!("  name = {s}"),
+                    _ => (),
+                };
+            }
+            _ => (),
+        }
+    }
+
+    {
+        // work with xml
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Employee {
+            id: u64,
+            name: String,
+        }
+
+        let emp1 = Employee {
+            id: 1,
+            name: "John Doe".to_string(),
+        };
+        let xml = serde_xml_rs::to_string(&emp1).unwrap();
+        println!("{xml}");
+
+        let emp2: Employee =
+            serde_xml_rs::from_str(r#"<Employee><id>1</id><name>John Doe</name></Employee>"#)
+                .unwrap();
+        println!("{emp2:?}");
+    }
+
+    {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        enum Employee {
+            Programmer { name: String, language: String },
+            Manager { name: String },
+        }
+
+        let programmer = Employee::Programmer {
+            name: "John Doe".to_string(),
+            language: "Rust".to_string(),
+        };
+        println!("{}", serde_json::to_string(&programmer).unwrap());
+        // {"Programmer":{"name":"John Doe","language":"Rust"}}
+
+        let manager = Employee::Manager {
+            name: "Ivan Ivanov".to_string(),
+        };
+        println!("{}", serde_json::to_string(&manager).unwrap());
+        // {"Manager":{"name":"Ivan Ivanov"}
+    }
+
+    {
+        // tag usage
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(tag = "type")]
+        enum Employee {
+            Programmer { name: String, language: String },
+            Manager { name: String },
+        }
+
+        let programmer = Employee::Programmer {
+            name: "John Doe".to_string(),
+            language: "Rust".to_string(),
+        };
+        println!("{}", serde_json::to_string(&programmer).unwrap());
+        // {"type":"Programmer","name":"John Doe","language":"Rust"}
+
+        let manager = Employee::Manager {
+            name: "Ivan Ivanov".to_string(),
+        };
+        println!("{}", serde_json::to_string(&manager).unwrap());
+        // {"type":"Manager","name":"Ivan Ivanov"}
+    }
+
+    {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(tag = "type", content = "obj")]
+        enum Employee {
+            Programmer { name: String, language: String },
+            Manager { name: String },
+        }
+
+        let programmer = Employee::Programmer {
+            name: "John Doe".to_string(),
+            language: "Rust".to_string(),
+        };
+        println!("{}", serde_json::to_string(&programmer).unwrap());
+        // {"type":"Programmer","obj":{"name":"John Doe","language":"Rust"}}
+
+        let manager = Employee::Manager {
+            name: "Ivan Ivanov".to_string(),
+        };
+        println!("{}", serde_json::to_string(&manager).unwrap());
+        // {"type":"Manager","obj":{"name":"Ivan Ivanov"}}
+    }
+
+    {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(untagged)]
+        enum Employee {
+            Programmer { name: String, language: String },
+            Manager { name: String },
+        }
+
+        let programmer = Employee::Programmer {
+            name: "John Doe".to_string(),
+            language: "Rust".to_string(),
+        };
+        println!("{}", serde_json::to_string(&programmer).unwrap());
+        // {"name":"John Doe","language":"Rust"}
+
+        let manager = Employee::Manager {
+            name: "Ivan Ivanov".to_string(),
+        };
+        println!("{}", serde_json::to_string(&manager).unwrap());
+        // {"name":"Ivan Ivanov"}
+    }
+
+    {
+        //explicit field name
+
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct Employee {
+            #[serde(rename = "name")]
+            fist_name: String,
+        }
+
+        let emp1: Employee = serde_json::from_str(r#"{"name":"John"}"#).unwrap();
+        println!("{emp1:?}"); // Employee { fist_name: "John" }
+
+        let emp2 = Employee {
+            fist_name: "John Doe".to_string(),
+        };
+        println!("{}", serde_json::to_string(&emp2).unwrap()); // {"name":"John Doe"}
+    }
+
+    {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Employee {
+            fist_name: String,
+        }
+
+        let emp: Employee = serde_json::from_str(r#"{"fistName":"John"}"#).unwrap();
+        println!("{emp:?}");
+    }
+
+    {
+        // DeserializeOwned usage
+
+        use serde::de::DeserializeOwned;
+
+        #[allow(dead_code)]
+        #[derive(Debug)]
+        struct Holder<T>
+        where
+            T: DeserializeOwned,
+        {
+            v: T,
+        }
+
+        fn deserialize_into_holder<T: DeserializeOwned>(json: &str) -> Holder<T> {
+            let v: T = serde_json::from_str(json).unwrap();
+            Holder { v }
+        }
+
+        let json = String::from("5");
+        let h: Holder<i32> = deserialize_into_holder(&json);
+        println!("{h:?}");
+    }
+
     println!("end")
 }
 

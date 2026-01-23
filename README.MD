@@ -206,6 +206,12 @@ Codium with these plugins:
 | isize | std::sync::atomic::AtomicIsize |
 | *mut T | std::sync::atomic::AtomicPtr<T> |
 
+## Serialization
+
+- Rust doesn't have a std serialize logic
+- there is `serde` crate which exposes Serialize/Deserialize traits which are considered by all serialization dependencies
+- <img src="./_forReadme/image copy 2.png" />
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
@@ -254,6 +260,8 @@ Codium with these plugins:
 - Difference between `channel` and `sync_channel`
   - `channel` doesn't have size
   - `sync_channel` - has size, if is exceeded, producer waits in blocked state until there is space for element
+- How to add a dependency with explicit feature?
+  - `cargo add serde --features "derive"`
 
 ## References
 
