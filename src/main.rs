@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::thread::sleep;
 use std::{fmt::Debug, ops::Deref};
 
 mod mod1;
@@ -4552,6 +4553,172 @@ fn main() {
         let json = String::from("5");
         let h: Holder<i32> = deserialize_into_holder(&json);
         println!("{h:?}");
+    }
+
+    {
+        // Rust's date time api is very poor
+        // std::time::Duration, std::time::SystemTime, std::time::Instant
+
+        use std::time::Duration;
+
+        let d1 = Duration::from_secs(5); // 5 seconds
+        let d2 = Duration::from_secs(60); // 1 minute
+        let d3 = d2.saturating_sub(d1); // 55 seconds
+        println!("{}", d3.as_secs()); // 55
+    }
+
+    {
+        use std::time::{Duration, SystemTime};
+
+        let sys_time_now = SystemTime::now();
+        let unix_time_duration: Duration =
+            sys_time_now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+        let unix_time_now: u64 = unix_time_duration.as_secs();
+
+        println!("{unix_time_now:?}");
+
+        // q1=SystemTime::now();q2=SystemTime::now()
+        // there is a chance q1 to be greater than q2
+        // to calculate evaluation time use Instant::now()
+        {
+            use std::time::{Duration, Instant};
+
+            let start = Instant::now();
+            sleep(Duration::from_millis(500));
+            let took: Duration = start.elapsed();
+            println!("{took:?}");
+        }
+
+        {
+            // chrono dependency
+            use chrono::{Days, Months, NaiveDate};
+
+            let date: NaiveDate = NaiveDate::from_ymd_opt(2025, 12, 15).unwrap();
+            println!("{:?}", date); // 2025-12-15
+            println!("{}", date.format("%Y-%m-%d")); // 2025-12-15
+            println!("{}", date.format("%Y/%d/%m")); // 2025/15/12
+
+            let date = NaiveDate::parse_from_str("2025-01-01", "%Y-%m-%d").unwrap();
+            let three_days = date
+                .iter_days()
+                .skip(1)
+                .take(3)
+                .map(|d| d.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            println!("Three days since {date}: {three_days}");
+            // Three days since 2025-01-01: 2025-01-02,2025-01-03,2025-01-04
+
+            let new_date = date
+                .checked_add_months(Months::new(2))
+                .unwrap()
+                .checked_add_days(Days::new(5))
+                .unwrap();
+            println!("{}", new_date); // 2025-03-06
+        }
+
+        {
+            use chrono::NaiveTime;
+
+            let time1: NaiveTime = NaiveTime::from_hms_opt(13, 51, 10).unwrap();
+            println!("{:?}", time1); // 13:51:10
+            println!("{}", time1.format("%H-%M-%S")); // 13-51-10
+
+            let time2 = NaiveTime::parse_from_str("12:01:00", "%H:%M:%S").unwrap();
+            let time_diff = time1.signed_duration_since(time2);
+            println!("{} seconds", time_diff.num_seconds()); // 6610 seconds
+        }
+
+        {
+            use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+
+            let dt: NaiveDateTime = NaiveDateTime::new(
+                NaiveDate::from_ymd_opt(2025, 11, 15).unwrap(),
+                NaiveTime::from_hms_nano_opt(13, 51, 10, 123456789).unwrap(),
+            );
+            println!("{}", dt); // 2025-11-15 13:51:10.123456789
+            println!("{}", dt.format("%Y-%m-%dT%H:%M:%S.%3f")); // 2025-11-15T13:51:10.123
+
+            let dt =
+                NaiveDateTime::parse_from_str("2025-11-15T13:51:10.123", "%Y-%m-%dT%H:%M:%S.%3f")
+                    .unwrap();
+            let date = dt.date();
+            let time = dt.time();
+            println!("{date:?} - {time:?}");
+        }
+
+        // TimeZone trait has 3 impls: Utc, Local, FixedOffset
+        {
+            use chrono::{DateTime, FixedOffset, Local, Utc};
+
+            let utc: DateTime<Utc> = Utc::now();
+            let local: DateTime<Local> = Local::now();
+
+            let utc_fixed: DateTime<FixedOffset> = utc.fixed_offset();
+            let local_fixed: DateTime<FixedOffset> = local.fixed_offset();
+
+            println!("UTC:   {utc}");
+            println!("Local: {local}");
+            println!("UTC fixed:   {}", utc_fixed);
+            println!("Local fixed: {}", local_fixed);
+
+            println!("UTC -> naive UTC:     {}", utc.naive_utc());
+            println!("UTC -> naive Local:   {}", utc.naive_local());
+            println!("Local -> naive Local: {}", local.naive_local());
+            println!("Local -> naive UTC:   {}", local.naive_utc());
+        }
+    }
+
+    {
+        use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+
+        let utc1: DateTime<Utc> = Utc.with_ymd_and_hms(2025, 12, 15, 13, 51, 10).unwrap();
+        println!("{utc1}"); // 2025-12-15 13:51:10 UTC
+
+        let utc2: DateTime<Utc> = NaiveDate::from_ymd_opt(2025, 12, 15)
+            .unwrap() // create NavieDate
+            .and_hms_opt(13, 51, 10)
+            .unwrap() // transform в NaiveDateTime
+            .and_utc(); // add time zone
+        println!("{utc2}"); // 2025-12-15 13:51:10 UTC
+
+        let dt =
+            DateTime::parse_from_str("2025-12-15 13:51:10 +0000", "%Y-%m-%d %H:%M:%S %z").unwrap();
+        println!("{dt}"); // 2025-12-15 13:51:10 +00:00
+
+        let utc3 = dt.to_utc();
+        println!("{utc3}"); // 2025-12-15 13:51:10 UTC
+    }
+
+    {
+        use chrono::{TimeZone, Utc};
+
+        let utc = Utc.with_ymd_and_hms(2025, 12, 15, 13, 51, 10).unwrap();
+        println!("RFC3339: {}", utc.to_rfc3339());
+        // RFC3339: 2025-12-15T13:51:10+00:00
+
+        println!("RFC2822: {}", utc.to_rfc2822());
+        // RFC2822: Mon, 15 Dec 2025 13:51:10 +0000
+
+        println!("{}", utc.format("%Y-%m-%d %H:%M:%S.%3f %z"));
+        // 2025-12-15 13:51:10.000 +0000
+    }
+
+    {
+        use chrono::{DateTime, FixedOffset, TimeZone, Utc};
+
+        let hours_02_minutes_30 = 2 * 3600 + 30 * 60;
+        let tz_02_30: FixedOffset = FixedOffset::east_opt(hours_02_minutes_30).unwrap();
+
+        let dt: DateTime<FixedOffset> =
+            tz_02_30.with_ymd_and_hms(2025, 12, 15, 13, 51, 10).unwrap();
+        println!("{dt}"); // 2025-12-15 13:51:10 +02:30
+
+        // convert UTC, to UTC+2:30
+        let now_utc: DateTime<Utc> = Utc::now();
+        let now_02_30: DateTime<FixedOffset> = now_utc.with_timezone(&tz_02_30);
+        println!("UTC:    {now_utc}"); // UTC:    2025-12-15 16:42:19.043035374 UTC
+        println!("+02:30: {now_02_30}"); // +02:30: 2025-12-15 19:12:19.043036305 +02:30
     }
 
     println!("end")
