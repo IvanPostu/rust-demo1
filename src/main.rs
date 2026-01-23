@@ -2739,6 +2739,136 @@ fn main() {
         // to avoid it: fn my_func<T: ?Sized>() { ...
     }
 
+    {
+        use std::any::TypeId;
+
+        // upcast, downcast
+        // by default rust supports upcast: child to parent(trait)
+        // downcast is supported via TypeId 128 bit id of the type
+
+        struct Student {}
+        struct Teacher {}
+
+        println!("{:?}", TypeId::of::<Student>()); // TypeId(0xaf8ebb053b28606d84daaf35f1eae84c)
+        println!("{:?}", TypeId::of::<Teacher>()); // TypeId(0x318ec7010fde8de82dedcdc9562881fd)
+    }
+
+    {
+        use std::any::TypeId;
+
+        trait Person
+        where
+            Self: 'static,
+        {
+            fn exact_type(&self) -> TypeId {
+                TypeId::of::<Self>()
+            }
+        }
+
+        impl dyn Person {
+            fn downcast<T: 'static>(&self) -> Option<&T> {
+                if TypeId::of::<T>() == self.exact_type() {
+                    unsafe {
+                        let (data, _vtable): (*const u8, *const u8) = std::mem::transmute(self);
+                        let data: *const T = std::mem::transmute(data);
+                        data.as_ref()
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+
+        struct Student {
+            name: String,
+            year_of_education: u32,
+        }
+        impl Person for Student {}
+
+        struct Teacher {
+            name: String,
+            subject: String,
+        }
+        impl Person for Teacher {}
+
+        fn work_with_person(base: &dyn Person) {
+            if let Some(s) = base.downcast::<Student>() {
+                println!("This is {}, a {}-year student", s.name, s.year_of_education);
+            } else if let Some(t) = base.downcast::<Teacher>() {
+                println!("This is {}, a teacher of {}", t.name, t.subject);
+            }
+        }
+
+        let student = Student {
+            name: "John".to_string(),
+            year_of_education: 3,
+        };
+        work_with_person(&student);
+
+        let teacher = Teacher {
+            name: "Ivan".to_string(),
+            subject: "Programming".to_string(),
+        };
+        work_with_person(&teacher);
+    }
+
+    {
+        use std::any::Any;
+
+        let s = "hello".to_string();
+        let any = &s as &dyn Any;
+
+        println!("any is i32: {}", any.is::<i32>()); // any is i32: false
+        println!("any is String: {}", any.is::<String>()); // any is String: true
+
+        println!("{:?}", any.downcast_ref::<i32>()); // None
+        println!("{:?}", any.downcast_ref::<String>()); // Some("hello")
+    }
+
+    {
+        use std::any::Any;
+
+        #[allow(dead_code)]
+        trait Person: Any {}
+
+        struct Student {
+            name: String,
+            year_of_education: u32,
+        }
+        impl Person for Student {}
+
+        struct Teacher {
+            name: String,
+            subject: String,
+        }
+        impl Person for Teacher {}
+
+        fn work_with_person(person: &(dyn Any + 'static)) {
+            let any = person as &dyn Any;
+            if let Some(s) = any.downcast_ref::<Student>() {
+                println!("This is {}, a {}-year student", s.name, s.year_of_education);
+            } else if let Some(t) = any.downcast_ref::<Teacher>() {
+                println!("This is {}, a teacher of {}", t.name, t.subject);
+            }
+        }
+
+        pub fn run_downcast_demo_with_any() {
+            let student = Student {
+                name: "John".to_string(),
+                year_of_education: 3,
+            };
+            work_with_person(&student);
+
+            let teacher = Teacher {
+                name: "Ivan".to_string(),
+                subject: "Programming".to_string(),
+            };
+            work_with_person(&teacher);
+        }
+
+        run_downcast_demo_with_any();
+    }
+
     println!("end")
 }
 
