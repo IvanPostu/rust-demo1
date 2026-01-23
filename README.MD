@@ -189,6 +189,23 @@ Codium with these plugins:
 - Rust has orphan rule, if trait and struct are parts of other crate then we can't define new methods as a part of that trait
 - Solution is Newtype pattern (`struct NewType(ForeignType)`)
 
+## Atomic wrappers
+
+| Primitive / Pointer | Atomic equivalent |
+|---------------------|-------------------|
+| bool | std::sync::atomic::AtomicBool |
+| u8 | std::sync::atomic::AtomicU8 |
+| u16 | std::sync::atomic::AtomicU16 |
+| u32 | std::sync::atomic::AtomicU32 |
+| u64 | std::sync::atomic::AtomicU64 |
+| i8 | std::sync::atomic::AtomicI8 |
+| i16 | std::sync::atomic::AtomicI16 |
+| i32 | std::sync::atomic::AtomicI32 |
+| i64 | std::sync::atomic::AtomicI64 |
+| usize | std::sync::atomic::AtomicUsize |
+| isize | std::sync::atomic::AtomicIsize |
+| *mut T | std::sync::atomic::AtomicPtr<T> |
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
@@ -216,6 +233,27 @@ Codium with these plugins:
   - A full rust project which can have multiple executables `src/main.rs` and `src/bin/*.rs` and libs
 - What is a module?
   - a file/folder with files which exports functions, structs, traits and impls
+- What is the difference between `Send` and `Sync`?
+  - `Send`: a value can be moved to another thread
+  - `Sync`: a value can be shared between threads by reference
+- Sync mechanisms
+  - `Mutex` - exclusive lock
+  - `RwLock` - read/write lock
+  - `Condvar` - t1 sleeps, t2 awakes t1
+  - `Barrier` - sync N threads on specific section of code
+- What is thread safe version of `Rc`?
+  - `Arc` - Atomic reference counter
+- What is poisoned mutex?
+  - if t1 acquired mutex and finished with panic, then if t2 tries to acquire that mutex gets `PoisonError`
+- Enumerate `std::sync::atomic::Ordering`
+  - Relaxed: “just don’t tear”
+  - Acquire: “see what was published”
+  - Release: “publish what I did”
+  - AcqRel: “update with sync”
+  - SeqCst: “everyone agrees on order”
+- Difference between `channel` and `sync_channel`
+  - `channel` doesn't have size
+  - `sync_channel` - has size, if is exceeded, producer waits in blocked state until there is space for element
 
 ## References
 
@@ -223,3 +261,4 @@ Codium with these plugins:
 1. Dependency repository: <https://crates.io/>
 1. Rust tips and tricks: <https://github.com/awesome-rust-com/awesome-rust>
 1. Rust's versioning approach <https://semver.org/>
+1. Rust Atomics and Locks - Mara Bos

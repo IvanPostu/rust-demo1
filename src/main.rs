@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::{fmt::Debug, ops::Deref};
 
 mod mod1;
@@ -11,6 +12,11 @@ const TAU: f32 = double(PI);
 
 const STATIC_LIFETIME_STR: &'static str = "STATIC_LIFETIME_STR";
 const IMPLICIT_STATIC_LIFETIME_STR: &str = "IMPLICIT_STATIC_LIFETIME_STR";
+
+// each thread has its own global variable
+thread_local! {
+    pub static NUM: Cell<u32> = const { Cell::new(0) };
+}
 
 fn main() {
     let mut _i8: i8 = 1;
@@ -3310,6 +3316,436 @@ fn main() {
         fn _my_func3() -> String {
             unreachable!("Should never happen") // triggers panic, intended for code that should never happen
         }
+    }
+
+    {
+        use std::thread::{self, JoinHandle};
+
+        let t1: JoinHandle<i32> = thread::spawn(|| 1);
+        let t2: JoinHandle<i32> = thread::spawn(|| 2);
+
+        let sum = t1.join().unwrap() + t2.join().unwrap();
+
+        println!("{sum}"); // 3
+    }
+
+    {
+        use std::thread;
+
+        fn print_nums() {
+            let thread_id = thread::current().id(); // ID текущего потока
+            for i in 1..5 {
+                println!("thread: {thread_id:?}, num: {i}");
+                thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
+
+        let t1 = thread::spawn(print_nums);
+        let t2 = thread::spawn(print_nums);
+        let _ = t1.join();
+        let _ = t2.join();
+    }
+
+    {
+        let t = std::thread::Builder::new()
+            .name("my_thread".to_string())
+            .stack_size(8192)
+            .spawn(|| println!("thread name: {:?}", std::thread::current().name()))
+            .unwrap();
+        let _ = t.join();
+    }
+
+    {
+        use std::thread;
+
+        let user = "John Doe".to_string(); // shared resource, it works because it implements trait Send
+        let t1 = thread::spawn(move || {
+            println!("{}", user);
+        });
+        let _ = t1.join();
+    }
+
+    {
+        // Rc wrapper does not implement Send because counter increment can cause corruption
+    }
+
+    {
+        #[allow(dead_code)]
+        struct User {
+            name: String,
+            ptr: *mut u32, // *mut T reference - is not Send
+        }
+
+        unsafe impl Send for User {}
+
+        fn prove_send<T: Send>() {}
+
+        prove_send::<User>();
+    }
+
+    {
+        static SSS: String = String::new();
+        let r1 = &SSS;
+        let r2 = &SSS;
+
+        let t1 = std::thread::spawn(move || {
+            // Allowed because String type implements Sync
+            println!("{}", r1);
+        });
+        let t2 = std::thread::spawn(move || {
+            println!("{}", r2);
+        });
+        let _ = t1.join();
+        let _ = t2.join();
+    }
+
+    {
+        use std::sync::{Mutex, MutexGuard, PoisonError};
+
+        let m: Mutex<i32> = Mutex::new(5);
+        {
+            let lock_attempt: Result<MutexGuard<'_, i32>, PoisonError<_>> = m.lock();
+            let mut guard = lock_attempt.unwrap();
+            *guard = 6;
+        }
+    }
+
+    {
+        use std::{
+            sync::{Arc, Mutex},
+            thread,
+        };
+
+        let m_original: Arc<Mutex<i32>> = Arc::new(Mutex::new(5));
+
+        let m_clone = m_original.clone();
+        let t = thread::spawn(move || {
+            if let Ok(mut guard) = m_clone.lock() {
+                *guard = 6;
+            }
+        });
+        let _ = t.join();
+
+        println!("{m_original:?}"); // Mutex { data: 6, poisoned: false, .. }
+    }
+
+    {
+        use std::{
+            sync::{Arc, Mutex},
+            thread::{self, JoinHandle},
+        };
+
+        fn start_counter_thread(counter: Arc<Mutex<i32>>) -> JoinHandle<()> {
+            thread::spawn(move || {
+                for _ in 0..1000 {
+                    if let Ok(mut guard) = counter.lock() {
+                        *guard += 1;
+                    }
+                }
+            })
+        }
+
+        let counter = Arc::new(Mutex::new(0));
+
+        let t1 = start_counter_thread(counter.clone());
+        let t2 = start_counter_thread(counter.clone());
+
+        let _ = t1.join();
+        let _ = t2.join();
+
+        println!("{counter:?}"); // Mutex { data: 2000, poisoned: false, .. }
+    }
+
+    {
+        use std::sync::Mutex;
+
+        let list: Mutex<Vec<i32>> = Mutex::new(vec![1, 2, 33]);
+        let last: Option<i32> = list.lock().unwrap().pop(); // lock and release in the end
+        if let Some(element) = last {
+            println!("{element:?}");
+        }
+
+        // let list1: Mutex<Vec<i32>> = &Mutex::new(vec![1, 2, 33]);
+        // if let Some(element) = list1.lock().unwrap().pop() {
+        //     println!("{element:?}");
+        // } // lock is released here
+    }
+
+    {
+        use std::{
+            sync::{Arc, Mutex},
+            thread,
+        };
+
+        let m = Arc::new(Mutex::new(5));
+
+        let m1 = m.clone();
+        let t1 = thread::spawn(move || {
+            let guard = m1.lock().unwrap();
+            println!("{guard:?}");
+            panic!("poisoning mutex...");
+        });
+        let _ = t1.join();
+
+        println!("{}", m.is_poisoned()); // true
+
+        let lock_attempt_1 = m.lock();
+        println!("{lock_attempt_1:?}"); // Err(PoisonError { .. })
+
+        if let Err(e) = lock_attempt_1 {
+            let guard = e.into_inner();
+            println!("Value: {}", *guard); // 5
+        }
+
+        m.clear_poison();
+        println!("{}", m.is_poisoned()); // false
+    }
+
+    {
+        // RwLock usage
+        use std::sync::RwLock;
+
+        let rw_lock = RwLock::new(5);
+
+        {
+            let lock_attempt = rw_lock.read();
+            if let Ok(guard) = lock_attempt {
+                println!("Read: {}", *guard);
+            }
+        }
+
+        {
+            let lock_attempt = rw_lock.write();
+            if let Ok(mut guard) = lock_attempt {
+                *guard = 10;
+                println!("Updated: {}", *guard);
+            }
+        }
+
+        println!("{rw_lock:?}");
+
+        // poisoning happens only if write lock thread panicked
+    }
+
+    {
+        // Condvar usage
+
+        use std::sync::{Arc, Condvar, Mutex};
+        use std::thread;
+
+        let cond = Arc::new((Mutex::new(false), Condvar::new()));
+
+        let cond_copy = Arc::clone(&cond);
+        thread::spawn(move || {
+            let (mutex, cvar) = &*cond_copy;
+            let mut flag_guard = mutex.lock().unwrap();
+            *flag_guard = true;
+            cvar.notify_one();
+        });
+
+        let (mutex, cvar) = &*cond;
+        let mut flag_guard = mutex.lock().unwrap();
+        while !(*flag_guard) {
+            flag_guard = cvar.wait(flag_guard).unwrap();
+        }
+    }
+
+    {
+        // Barrier usage
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        const WORKERS_NUM: usize = 10;
+
+        let data = (0..100).collect::<Vec<_>>();
+        let mutex = Arc::new(Mutex::new(data));
+        let barrier = Arc::new(Barrier::new(WORKERS_NUM));
+
+        let mut workers = Vec::new();
+        for _ in 0..WORKERS_NUM {
+            let mutex_clone = mutex.clone();
+            let barrier_clone = barrier.clone();
+            let t = thread::spawn(move || loop {
+                barrier_clone.wait();
+                let Some(element) = mutex_clone.lock().unwrap().pop() else {
+                    break;
+                };
+                println!("Processing {element} by {:?}", thread::current().id());
+            });
+            workers.push(t);
+        }
+        workers.into_iter().for_each(|t| t.join().unwrap());
+    }
+
+    {
+        // Barrier + scoped thread
+        use std::sync::{Barrier, Mutex};
+        use std::thread;
+
+        const WORKERS_NUM: usize = 10;
+
+        let data = (0..100).collect::<Vec<_>>();
+        let mutex = Mutex::new(data);
+        let barrier = Barrier::new(WORKERS_NUM);
+
+        thread::scope(|s| {
+            for _ in 0..WORKERS_NUM {
+                s.spawn(|| loop {
+                    barrier.wait();
+                    let Some(element) = mutex.lock().unwrap().pop() else {
+                        break;
+                    };
+                    println!("Processing {element} by {:?}", thread::current().id());
+                });
+            }
+        });
+    }
+
+    {
+        use std::{
+            sync::atomic::{AtomicI32, Ordering},
+            thread,
+        };
+
+        let a = AtomicI32::new(0);
+        thread::scope(|s| {
+            for _ in 0..1000 {
+                s.spawn(|| {
+                    for _ in 0..1000 {
+                        a.fetch_add(1, Ordering::Relaxed);
+                    }
+                });
+            }
+        });
+        println!("{}", a.load(Ordering::Relaxed));
+    }
+
+    {
+        use std::thread;
+
+        let mut a = 0;
+        let address = (&mut a as *mut i32) as usize;
+        thread::scope(|s| {
+            for _ in 0..1000 {
+                s.spawn(|| {
+                    for _ in 0..1000 {
+                        unsafe {
+                            *(address as *mut i32) += 1;
+                        }
+                    }
+                });
+            }
+        });
+        println!("{}", a); // 862886
+    }
+
+    // Atomic: compare_exchange is same as compare_and_swap
+    {
+        // compare_exchange example
+        use std::{
+            sync::atomic::{AtomicI32, Ordering},
+            thread,
+        };
+
+        let a = AtomicI32::new(0);
+        thread::scope(|s| {
+            for _ in 0..1000 {
+                s.spawn(|| {
+                    for _ in 0..1000 {
+                        let mut old_val = a.load(Ordering::Relaxed);
+                        loop {
+                            let new_val = old_val + 1;
+                            let r = a.compare_exchange(
+                                old_val,
+                                new_val,
+                                Ordering::Relaxed,
+                                Ordering::Relaxed,
+                            );
+                            if let Err(actual_val) = r {
+                                old_val = actual_val;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+        });
+        println!("{:?}", a); // 1000000
+    }
+
+    {
+        use std::thread;
+
+        fn print_num() {
+            println!("{}", NUM.get());
+        }
+
+        let t1 = thread::spawn(|| {
+            NUM.set(1);
+            print_num();
+        });
+        let t2 = thread::spawn(|| {
+            NUM.set(2);
+            print_num();
+        });
+        let _ = t1.join();
+        let _ = t2.join();
+    }
+
+    {
+        // channel - a way to communicate between threads via queue
+        // mpsc - (multiple producers, single consumer)
+
+        use std::{sync::mpsc, thread};
+
+        #[allow(dead_code)]
+        enum Element {
+            Num(i32),
+            Finish,
+        }
+
+        let (producer, receiver) = mpsc::channel::<Element>();
+        let t1 = thread::spawn(move || {
+            for i in 0..5 {
+                let _ = producer.send(Element::Num(i));
+            }
+        });
+        let t2 = thread::spawn(move || {
+            while let Ok(msg) = receiver.recv() {
+                match msg {
+                    Element::Num(i) => println!("{i}"),
+                    Element::Finish => break,
+                }
+            }
+        });
+        let _ = t1.join();
+        let _ = t2.join();
+    }
+
+    {
+        use std::{
+            sync::mpsc,
+            thread,
+            time::{Duration, Instant},
+        };
+
+        let (snd, rcv) = mpsc::sync_channel::<i32>(3);
+        let t1 = thread::spawn(move || {
+            for i in 0..5 {
+                let start = Instant::now();
+                let _ = snd.send(i);
+                println!("Took {} millis to send msg", start.elapsed().as_millis());
+            }
+        });
+        let _ = thread::spawn(move || loop {
+            thread::sleep(Duration::from_secs(1));
+            match rcv.recv() {
+                Ok(_) => (),
+                Err(_) => break,
+            }
+        });
+        let _ = t1.join();
     }
 
     println!("end")
