@@ -139,6 +139,41 @@ struct MyStruct {
 
 - Unlike C lang, Rust can change order of fields in the struct. To keep order use annotation `#[repr(C)]`
 
+## STD Traits
+
+- `Debug` -> implements `println!("{:?}")`
+- `Clone` -> implements clone()
+- `Copy` -> implements `=` which executes clone instead of change of ownership
+- `Hash` - implements hash function for the type, calls hash for each field, can be implemented manually
+- `PartialEq`, `Eq` - equals logic
+- `PartialOrd`, `Ord` - ordinal logic used on sort ops
+- `#[derive(Default)]` - sets default value for all fields, `let options: SomeOptions = Default::default();`
+- `Deref`
+
+  ```java
+  let x = Box::new(5);
+  let y: &i32 = &x; // works because Box<T> implements Deref<Target = T>
+  // is same as
+  let y: &i32 = x.deref();
+  ```
+
+- `Iterator`
+- `From`, `Into`
+- `AsRef<T>`
+- `AsMut`
+- `Borrow` - should follow Eq, Ord and Hash of the wrapped value
+- `BorrowMut`
+- `ToOwned`
+- `Drop` - destructor
+- `Sized` - mark trait, tells that the size is known on compile time
+- `Sync`
+- `Send`
+
+## Difference between `Eq` and `PartialEq`
+
+- `PartialEq` forces to implement `==` and `!=`, e.g. f32: PartialEq but not Eq because of NAN == NAN -> false
+- `Eq` extends `PartialEq` and satisfies contract: reflexive, transitive and symmetric
+
 ## Code editor + debugger
 
 Codium with these plugins:

@@ -2504,6 +2504,241 @@ fn main() {
         println!("First 10 elements of fibonacci sequence: {s:?}");
     }
 
+    {
+        #[derive(Debug, PartialEq)]
+        struct Cargo {
+            weght: f32,
+            fragile: bool,
+        }
+
+        impl Eq for Cargo {}
+
+        impl PartialOrd for Cargo {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl Ord for Cargo {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                if self.fragile && !other.fragile {
+                    return std::cmp::Ordering::Less;
+                }
+                if !self.fragile && other.fragile {
+                    return std::cmp::Ordering::Greater;
+                }
+                if self.weght < other.weght {
+                    std::cmp::Ordering::Less
+                } else if self.weght > other.weght {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            }
+        }
+
+        let mut v = vec![
+            Cargo {
+                weght: 2.0,
+                fragile: false,
+            },
+            Cargo {
+                weght: 1.0,
+                fragile: false,
+            },
+            Cargo {
+                weght: 3.0,
+                fragile: true,
+            },
+        ];
+        v.sort(); // requires to impl Ord
+        println!("{v:?}");
+        //Cargo{weght:3.0,fragile:true},Cargo{weght:1.0,fragile:false},Cargo{weght:2.0,fragile:false}
+    }
+
+    {
+        println!("{}", i32::default()); // 0
+        println!("{}", f32::default()); // 0
+        println!("{}", bool::default()); // false
+        println!("{}", String::default()); // ""
+        println!("{:?}", Vec::<i32>::default()); // []
+    }
+
+    {
+        let o: Option<i32> = None;
+        let v = o.unwrap_or_default();
+        println!("{v}"); // 0
+    }
+
+    {
+        #[derive(Debug, Default)]
+        #[allow(dead_code)]
+        struct Ip4Addr(u8, u8, u8, u8);
+
+        let default_ip_addr = Ip4Addr::default();
+        println!("{default_ip_addr:?}"); // Ip4Addr(0, 0, 0, 0)
+    }
+
+    {
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Ip4Addr(u8, u8, u8, u8);
+
+        impl Default for Ip4Addr {
+            fn default() -> Self {
+                Ip4Addr(127, 0, 0, 1)
+            }
+        }
+
+        let default_ip_addr = Ip4Addr::default();
+        println!("{default_ip_addr:?}"); // Ip4Addr(127, 0, 0, 1)
+    }
+
+    {
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Ip4Addr(u8, u8, u8, u8);
+
+        fn ping(addr: Ip4Addr) {
+            println!("Ping {addr:?}");
+        }
+
+        impl From<[u8; 4]> for Ip4Addr {
+            fn from(value: [u8; 4]) -> Self {
+                let [a, b, c, d] = value;
+                Ip4Addr(a, b, c, d)
+            }
+        }
+
+        let arr = [127, 0, 0, 1];
+        let addr = Ip4Addr::from(arr);
+        ping(addr);
+    }
+
+    {
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Ip4Addr(u8, u8, u8, u8);
+
+        fn ping(into_addr: impl Into<Ip4Addr>) {
+            println!("Ping {:?}", into_addr.into());
+        }
+
+        impl Into<Ip4Addr> for [u8; 4] {
+            fn into(self) -> Ip4Addr {
+                let [a, b, c, d] = self;
+                Ip4Addr(a, b, c, d)
+            }
+        }
+
+        let arr = [127, 0, 0, 1];
+        ping(arr);
+    }
+
+    {
+        #[allow(dead_code)]
+        struct Product(String);
+
+        #[allow(dead_code)]
+        struct Address(String);
+
+        struct Shipment {
+            product: Product,
+            address: Address,
+        }
+
+        impl AsRef<Product> for Shipment {
+            fn as_ref(&self) -> &Product {
+                &self.product
+            }
+        }
+
+        impl AsRef<Address> for Shipment {
+            fn as_ref(&self) -> &Address {
+                &self.address
+            }
+        }
+
+        #[allow(dead_code)]
+        fn process_product(_prod: impl AsRef<Product>) {
+            // ...
+        }
+
+        #[allow(dead_code)]
+        fn process_address(_addr: impl AsRef<Address>) {
+            // ...
+        }
+
+        let s = Shipment {
+            product: Product("laptop".to_string()),
+            address: Address("In the middle of the nowhere".to_string()),
+        };
+        process_product(&s);
+        process_address(&s);
+
+        // another usage example:
+        // let addr: &Address = s.as_ref();
+        // let addr = AsRef::<Address>::as_ref(&s);
+    }
+
+    {
+        // toOwned - similar to clone but may return another type, e.g.
+        let slice: &str = "aaa";
+        let owned: String = slice.to_owned();
+        println!("{owned}")
+    }
+
+    {
+        struct MyBox<T> {
+            ptr: *mut T,
+        }
+
+        impl<T> MyBox<T> {
+            fn new(val: T) -> MyBox<T> {
+                let ptr = unsafe {
+                    let layout = std::alloc::Layout::for_value(&val);
+                    let ptr = std::alloc::alloc(layout) as *mut T;
+                    *ptr = val;
+                    ptr
+                };
+                MyBox { ptr }
+            }
+            fn get(&self) -> &T {
+                unsafe { self.ptr.as_ref().unwrap() }
+            }
+            fn _set(&self, new_val: T) {
+                unsafe {
+                    *self.ptr = new_val;
+                }
+            }
+        }
+
+        impl<T> Drop for MyBox<T> {
+            fn drop(&mut self) {
+                unsafe {
+                    std::alloc::dealloc(self.ptr as *mut u8, std::alloc::Layout::new::<T>());
+                }
+                println!("Released memory");
+            }
+        }
+
+        {
+            let my_box = MyBox::new(5);
+            println!("Boxed num: {}", my_box.get());
+        } // my_box scope ended
+        println!("Box memory is already released here");
+    }
+
+    {
+        // Sized
+        // str is not sized
+        // &str is sized because it is slice for which we know length
+        // fn my_func<T>() { ... }
+        // is same as:
+        // fn my_func<T: Sized>() { ... }
+        // to avoid it: fn my_func<T: ?Sized>() { ...
+    }
+
     println!("end")
 }
 
