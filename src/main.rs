@@ -3748,6 +3748,117 @@ fn main() {
         let _ = t1.join();
     }
 
+    {
+        static mut VAR1: i32 = 0;
+
+        fn inc_var() {
+            unsafe {
+                VAR1 += 1;
+            }
+        }
+
+        fn get_var() -> i32 {
+            unsafe { VAR1 }
+        }
+
+        println!("{}", get_var()); // 0
+        inc_var();
+        println!("{}", get_var()); // 1
+    }
+
+    {
+        use std::{sync::Mutex, thread, time::Duration};
+
+        static COUNTER: Mutex<u64> = Mutex::new(0);
+
+        thread::scope(|s| {
+            s.spawn(|| {
+                for _ in 0..100 {
+                    let mut guard = COUNTER.lock().unwrap();
+                    let curr_val = *guard;
+                    thread::sleep(Duration::from_millis(10));
+                    *guard = curr_val + 1;
+                }
+            });
+            s.spawn(|| {
+                for _ in 0..100 {
+                    let mut guard = COUNTER.lock().unwrap();
+                    let curr_val = *guard;
+                    thread::sleep(Duration::from_millis(10));
+                    *guard = curr_val + 1;
+                }
+            });
+        });
+
+        println!("{}", *COUNTER.lock().unwrap()); // 200
+    }
+
+    {
+        // LazyLock is good if static variable has init logic or is stored in heap
+        use std::{
+            collections::HashMap,
+            sync::{LazyLock, Mutex},
+        };
+
+        static M: LazyLock<Mutex<HashMap<String, i32>>> =
+            LazyLock::new(|| Mutex::new(HashMap::new()));
+
+        {
+            let mut guard = M.lock().unwrap();
+            guard.insert("one".to_string(), 1);
+        }
+        {
+            let guard = M.lock().unwrap();
+            println!("{:?}", *guard); // {"one": 1}
+        }
+    }
+
+    {
+        use std::sync::{Mutex, OnceLock};
+
+        static O: OnceLock<Mutex<String>> = OnceLock::new();
+
+        {
+            let mutex = O.get_or_init(|| Mutex::new("default".to_string()));
+            let guard = mutex.lock().unwrap();
+            println!("OnceLock = {:?}", *guard);
+        }
+    }
+
+    {
+        use std::{
+            collections::HashMap,
+            sync::{Arc, LazyLock, Mutex, RwLock},
+        };
+
+        #[allow(dead_code)]
+        struct UserSession {}
+
+        #[allow(dead_code)]
+        static SESSIONS: LazyLock<RwLock<HashMap<String, Arc<Mutex<UserSession>>>>> =
+            LazyLock::new(|| RwLock::new(HashMap::new()));
+
+        // fn serve_request(r: Request) -> Response {
+        //     let session_mutex: Arc<Mutex<UserSession>> = {
+        //         let hash_table = SESSIONS.read().unwrap();
+        //         if let Some(session_ref) = hash_table.get(r.get_session_id()) {
+        //             session_ref.clone();
+        //         } else {
+        //             return Response::error_301();
+        //         }
+        //     };
+        //     let mut some_value = {
+        //         let guard = session_mutex.lock().unwrap();
+        //         (*guard).some_field.clone();
+        //     };
+        //     {
+        //         let guard = session_mutex.lock().unwrap();
+        //         (*guard).some_field = some_value;
+        //     }
+        //     Response::ok_200()
+        // }
+    }
+
     println!("end")
 }
 
