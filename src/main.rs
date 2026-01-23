@@ -3241,6 +3241,77 @@ fn main() {
         }
     }
 
+    {
+        use std::any::Any;
+        use std::panic;
+        use std::panic::catch_unwind;
+
+        let result: Result<(), Box<dyn Any + Send + 'static>> = catch_unwind(|| {
+            panic!("My panic msg");
+        });
+        println!("Result: '{:?}'", result);
+        println!("Continue working...");
+    }
+
+    {
+        use std::{any::Any, panic, panic::panic_any};
+
+        #[derive(Debug)]
+        enum ProcessingErr {
+            NotAuthorized,
+        }
+        fn serve_request(_req: &str) -> String {
+            panic_any(ProcessingErr::NotAuthorized);
+        }
+
+        let request = "Some request";
+
+        let closure_result: Result<String, Box<dyn Any + Send + 'static>> =
+            panic::catch_unwind(|| serve_request(request));
+
+        if let Err(a) = closure_result {
+            if let Some(panic_obj) = a.downcast_ref::<ProcessingErr>() {
+                println!("Panic object: {panic_obj:?}");
+            }
+        }
+    }
+
+    {
+        use std::panic::{self, PanicHookInfo};
+
+        fn my_panic_hook<'a>(p: &PanicHookInfo<'a>) {
+            println!("Hello from panic hook");
+            println!("Location: {:?}", p.location());
+            println!("Payload: {:?}", p.payload());
+        }
+
+        let old_hook = panic::take_hook();
+        panic::set_hook(Box::new(my_panic_hook));
+
+        let closure_result = panic::catch_unwind(|| {
+            panic!("Original panic msg");
+        });
+
+        if let Err(_) = closure_result {
+            println!("Panic");
+        }
+        panic::set_hook(old_hook);
+    }
+
+    {
+        fn _my_func() -> String {
+            todo!("Don't forget to implement") // triggers panic, should be implemented on the current dev iteration
+        }
+
+        fn _my_func2() -> String {
+            unimplemented!("UnsupportedOperationException") // triggers panic, similar to java's UnsupportedOperationException
+        }
+
+        fn _my_func3() -> String {
+            unreachable!("Should never happen") // triggers panic, intended for code that should never happen
+        }
+    }
+
     println!("end")
 }
 
