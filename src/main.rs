@@ -3112,6 +3112,69 @@ fn main() {
         let _ = stdout.write(&[65, 66, 67, 68, 69, 10]);
     }
 
+    {
+        // work with file and its content
+
+        use std::fs::{File, OpenOptions};
+        use std::io::{self, Read, Write};
+
+        fn main1() -> io::Result<()> {
+            {
+                // create a new file or rewrite existing
+                let mut file = File::create("file.txt")?;
+                file.write_all("First line\n".as_bytes())?;
+                file.flush()?; // Очистка буфера вывода
+                file.write_all("Second line\n".as_bytes())?;
+            }
+
+            {
+                let mut file = OpenOptions::new()
+                    .append(true)
+                    .create(false)
+                    .open("file.txt")?;
+                file.write_all("Third line\n".as_bytes())?;
+            }
+
+            {
+                let mut file = File::open("file.txt")?;
+                let mut buffer = String::new();
+                file.read_to_string(&mut buffer)?;
+                println!("{buffer}");
+            }
+
+            Ok(())
+        }
+
+        let _ = main1();
+    }
+
+    {
+        use std::{ffi::OsString, fs::FileType};
+
+        fn main1() -> std::io::Result<()> {
+            for read_entry in std::fs::read_dir(".")? {
+                if let Ok(entry) = read_entry {
+                    let entry_name: OsString = entry.file_name();
+                    let file_type: FileType = entry.file_type()?;
+                    println!("{entry_name:?} {file_type:?}");
+                }
+            }
+            Ok(())
+        }
+
+        let _ = main1();
+    }
+
+    {
+        use std::ffi::{OsStr, OsString};
+
+        let string = "text";
+        let os_string = OsString::from(string);
+        let os_str: &OsStr = &os_string;
+
+        println!("{os_string:?} - {os_str:?}");
+    }
+
     println!("end")
 }
 
