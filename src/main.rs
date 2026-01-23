@@ -3859,6 +3859,451 @@ fn main() {
         // }
     }
 
+    {
+        // thiserror dependency
+        // cargo add thiserror
+
+        #[allow(dead_code)]
+        struct Reservation {
+            reservation_id: u64,
+            product_id: u64,
+            quantity: u64,
+        }
+
+        #[allow(dead_code)]
+        trait ReservationService {
+            fn reserve(&self, id: u64, quantity: u64) -> Result<Reservation, ReserveError>;
+        }
+
+        #[allow(dead_code)]
+        #[derive(Debug)]
+        enum ReserveError {
+            NoSuchProduct { id: u64 },
+            NotEnought { asked: u64, available: u64 },
+        }
+
+        impl std::fmt::Display for ReserveError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                use ReserveError::*;
+                match self {
+                    NoSuchProduct { id } => write!(f, "No product with ID {id}"),
+                    NotEnought { asked, available } => {
+                        write!(f, "Asked {asked}, but available {available}")
+                    }
+                }
+            }
+        }
+
+        impl std::error::Error for ReserveError {}
+    }
+
+    {
+        use thiserror::Error;
+
+        #[derive(Debug, Error)]
+        #[allow(dead_code)]
+        enum ReserveError {
+            #[error("No product with ID {id}")]
+            NoSuchProduct { id: u64 },
+            #[error("Asked {asked}, but available {available}")]
+            NoEnoughtQuantity { asked: u64, available: u64 },
+        }
+    }
+
+    {
+        use std::{
+            collections::HashMap,
+            sync::{
+                atomic::{AtomicU64, Ordering},
+                Mutex,
+            },
+        };
+
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Reservation {
+            reservation_id: u64,
+            product_id: u64,
+            quantity: u64,
+        }
+
+        trait ReservationService {
+            fn reserve(&self, id: u64, quantity: u64) -> Result<Reservation, ReserveError>;
+        }
+
+        #[derive(Debug, thiserror::Error)]
+        enum ReserveError {
+            #[error("No product with ID {id}")]
+            NoSuchProduct { id: u64 },
+            #[error("Asked {asked}, but available {available}")]
+            NotEnought { asked: u64, available: u64 },
+        }
+
+        struct ReservationImpl {
+            storage: Mutex<HashMap<u64, u64>>,
+            last_id: AtomicU64,
+        }
+
+        impl ReservationService for ReservationImpl {
+            fn reserve(&self, id: u64, quantity: u64) -> Result<Reservation, ReserveError> {
+                let mut guard = self.storage.lock().unwrap();
+                if let Some(stock) = guard.get_mut(&id) {
+                    if *stock < quantity {
+                        Err(ReserveError::NotEnought {
+                            asked: quantity,
+                            available: *stock,
+                        })
+                    } else {
+                        *stock -= quantity;
+                        Ok(Reservation {
+                            reservation_id: self.last_id.fetch_add(1, Ordering::Relaxed),
+                            product_id: id,
+                            quantity,
+                        })
+                    }
+                } else {
+                    Err(ReserveError::NoSuchProduct { id })
+                }
+            }
+        }
+
+        let mut products = HashMap::new();
+        products.insert(111, 50);
+
+        let reservation_service = ReservationImpl {
+            storage: Mutex::new(products),
+            last_id: AtomicU64::new(0),
+        };
+
+        println!("{:?}", reservation_service.reserve(112, 1));
+        // Err(NoSuchProduct { id: 112 })
+
+        println!("{:?}", reservation_service.reserve(111, 51));
+        // Err(NoEnoughtQuantity { asked: 51, available: 50 })
+
+        println!("{:?}", reservation_service.reserve(111, 10));
+        // Ok(Reservation { reservation_id: 1, product_id: 111, quantity: 10 })
+    }
+
+    {
+        use std::{
+            collections::HashMap,
+            sync::{
+                atomic::{AtomicU64, Ordering},
+                Arc, Mutex,
+            },
+        };
+
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Reservation {
+            id: u64,
+            product_id: u64,
+            quantity: u64,
+        }
+
+        #[derive(Debug, thiserror::Error)]
+        #[allow(dead_code)]
+        enum ResereError {
+            #[error("No product with ID {id}")]
+            NoSuchProduct { id: u64 },
+            #[error("Asked {asked}, but available {available}")]
+            NotEnought { asked: u64, available: u64 },
+        }
+
+        trait ReservationService {
+            fn reserve(&self, id: u64, quantity: u64) -> Result<Reservation, ResereError>;
+        }
+
+        struct ReservationImpl {
+            storage: Mutex<HashMap<u64, u64>>,
+            last_id: AtomicU64,
+        }
+
+        impl ReservationImpl {
+            fn new(storage: HashMap<u64, u64>) -> ReservationImpl {
+                ReservationImpl {
+                    storage: Mutex::new(storage),
+                    last_id: AtomicU64::new(0),
+                }
+            }
+        }
+
+        impl ReservationService for ReservationImpl {
+            fn reserve(&self, id: u64, quantity: u64) -> Result<Reservation, ResereError> {
+                let mut guard = self.storage.lock().unwrap();
+                if let Some(stock) = guard.get_mut(&id) {
+                    if *stock < quantity {
+                        Err(ResereError::NotEnought {
+                            asked: quantity,
+                            available: *stock,
+                        })
+                    } else {
+                        *stock -= quantity;
+                        Ok(Reservation {
+                            id: self.last_id.fetch_add(1, Ordering::Relaxed),
+                            product_id: id,
+                            quantity,
+                        })
+                    }
+                } else {
+                    Err(ResereError::NoSuchProduct { id })
+                }
+            }
+        }
+
+        #[allow(dead_code)]
+        struct Shipment {
+            id: u64,
+            address: String,
+            reservation_id: u64,
+        }
+
+        #[derive(Debug, thiserror::Error)]
+        enum ShipmentError {
+            #[error("Invalid address: {address}")]
+            InvalidAddress { address: String },
+        }
+
+        trait ShipmentService {
+            fn schedule_shipment(
+                &self,
+                reservation: &Reservation,
+                address: &str,
+            ) -> Result<Shipment, ShipmentError>;
+        }
+
+        #[derive(Debug)]
+        struct ShipmentImpl {
+            last_id: AtomicU64,
+        }
+
+        impl ShipmentImpl {
+            fn new() -> ShipmentImpl {
+                ShipmentImpl {
+                    last_id: AtomicU64::new(0),
+                }
+            }
+        }
+
+        impl ShipmentService for ShipmentImpl {
+            fn schedule_shipment(
+                &self,
+                reservation: &Reservation,
+                address: &str,
+            ) -> Result<Shipment, ShipmentError> {
+                if address.split(" ").count() < 2 {
+                    Err(ShipmentError::InvalidAddress {
+                        address: address.to_string(),
+                    })
+                } else {
+                    Ok(Shipment {
+                        id: self.last_id.fetch_add(1, Ordering::Relaxed),
+                        address: address.to_string(),
+                        reservation_id: reservation.id,
+                    })
+                }
+            }
+        }
+
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Purchase {
+            id: u64,
+            reservation_id: u64,
+            shipment_id: u64,
+        }
+
+        #[derive(Debug, thiserror::Error)]
+        enum PurchaseError {
+            #[error("Nested servation error: (0)")]
+            ReservationFailed(#[from] ResereError),
+            #[error("Nested shipping error: (0)")]
+            ShippingFailed(#[from] ShipmentError),
+        }
+
+        trait PurchaseService {
+            fn purchase(
+                &self,
+                id: u64,
+                quantity: u64,
+                addr: &str,
+            ) -> Result<Purchase, PurchaseError>;
+        }
+
+        struct PurchaseImpl {
+            reservation_service: Arc<dyn ReservationService>,
+            shipment_service: Arc<dyn ShipmentService>,
+            last_id: AtomicU64,
+        }
+
+        impl PurchaseImpl {
+            fn new(
+                reservation_service: Arc<dyn ReservationService>,
+                shipment_service: Arc<dyn ShipmentService>,
+            ) -> PurchaseImpl {
+                PurchaseImpl {
+                    reservation_service,
+                    shipment_service,
+                    last_id: AtomicU64::new(0),
+                }
+            }
+        }
+
+        impl PurchaseService for PurchaseImpl {
+            fn purchase(
+                &self,
+                id: u64,
+                quantity: u64,
+                addr: &str,
+            ) -> Result<Purchase, PurchaseError> {
+                let reservation = self.reservation_service.reserve(id, quantity)?;
+                let shipment = self
+                    .shipment_service
+                    .schedule_shipment(&reservation, addr)?;
+                Ok(Purchase {
+                    id: self.last_id.fetch_add(1, Ordering::Relaxed),
+                    reservation_id: reservation.id,
+                    shipment_id: shipment.id,
+                })
+            }
+        }
+
+        fn initialize_purchase_service() -> Arc<dyn PurchaseService> {
+            let mut products = HashMap::new();
+            products.insert(111, 50);
+            let reservation_service = ReservationImpl::new(products);
+
+            let shipment_service = ShipmentImpl::new();
+
+            let purchase_service =
+                PurchaseImpl::new(Arc::new(reservation_service), Arc::new(shipment_service));
+
+            Arc::new(purchase_service)
+        }
+
+        let purchase_service = initialize_purchase_service();
+
+        println!("{:?}", purchase_service.purchase(112, 1, "addr 1"));
+        // Err(ReservationFailed(NoSuchProduct { id: 112 }))
+
+        println!("{:?}", purchase_service.purchase(111, 51, "addr 1"));
+        // Err(ReservationFailed(NotEnought { asked: 51, available: 50 }))
+
+        println!("{:?}", purchase_service.purchase(111, 10, "invalid"));
+        // Err(ShippingFailed(InvalidAddress { address: "invalid" }))
+
+        println!("{:?}", purchase_service.purchase(111, 10, "addr 1"));
+        // Ok(Purchase { id: 0, reservation_id: 1, shipment_id: 0 })
+    }
+
+    {
+        #[derive(Debug, thiserror::Error)]
+        #[error("Error A")]
+        struct ErrA;
+
+        #[derive(Debug, thiserror::Error)]
+        #[error("Error B")]
+        struct ErrB;
+
+        fn fail_a() -> Result<(), ErrA> {
+            Err(ErrA)
+        }
+        fn fail_b() -> Result<(), ErrB> {
+            Err(ErrB)
+        }
+
+        fn fail_something(is_a: bool) -> Result<(), Box<dyn std::error::Error>> {
+            if is_a {
+                let r = fail_a()?;
+                Ok(r)
+            } else {
+                let r = fail_b()?;
+                Ok(r)
+            }
+        }
+
+        if let Err(e) = fail_something(true) {
+            println!("Underlying error: {}", e.to_string());
+        }
+        if let Err(e) = fail_something(false) {
+            println!("Underlying error: {}", e.to_string());
+        }
+
+        if let Err(e) = fail_something(true) {
+            if let Some(err_a) = e.downcast_ref::<ErrA>() {
+                println!("Handle ErrA separately: {err_a}")
+            } else {
+                println!("Underlying error: {}", e.to_string());
+            }
+        }
+    }
+
+    {
+        // anyhow dep. usage
+
+        #[derive(Debug, thiserror::Error)]
+        #[error("My custom error")]
+        struct MyError;
+
+        fn fail_with_specific_error() -> Result<(), MyError> {
+            Err(MyError)
+        }
+
+        fn call_failable() -> anyhow::Result<()> {
+            let r = fail_with_specific_error()?;
+            Ok(r)
+        }
+
+        match call_failable() {
+            Ok(_) => println!("It was fine"),
+            Err(e) => eprintln!("It failed with: {}", e.root_cause()),
+        }
+    }
+
+    {
+        // include backtrace
+
+        #[derive(Debug, thiserror::Error)]
+        #[error("My custom error")]
+        struct MyError;
+
+        fn fail_with_specific_error() -> Result<(), MyError> {
+            Err(MyError)
+        }
+
+        fn call_failable() -> anyhow::Result<()> {
+            let r = fail_with_specific_error()?;
+            Ok(r)
+        }
+
+        match call_failable() {
+            Ok(_) => println!("It was fine"),
+            Err(e) => {
+                eprintln!("It failed with: {}", e.root_cause());
+                eprintln!("Backtrace:\n{}", e.backtrace()); // requires RUST_LIB_BACKTRACE=1 on run
+            }
+        }
+    }
+
+    {
+        use anyhow::Context;
+
+        fn read_non_existing_file() -> anyhow::Result<String> {
+            let text = std::fs::read_to_string("non_exising_file.txt")
+                .context("Cannot read non_exising_file.txt")?;
+            Ok(text)
+        }
+
+        match read_non_existing_file() {
+            Ok(text) => println!("File content: {text}"),
+            Err(e) => {
+                eprintln!("Failed with error: {}", e.root_cause());
+                eprintln!("Error context: {}", e.to_string());
+            }
+        }
+    }
+
     println!("end")
 }
 

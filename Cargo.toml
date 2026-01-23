@@ -20,3 +20,5 @@ path = "src/bin/fibonacci_prod.rs"
 rand = "0.9"
 uuid = { version = "1", features = ["v4"] }
 my_lib = { path = "./my_lib" }
+thiserror = "2.0.18"
+anyhow = "1.0.100"
