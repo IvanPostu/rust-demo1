@@ -2869,6 +2869,180 @@ fn main() {
         run_downcast_demo_with_any();
     }
 
+    {
+        // Vec usage
+        use std::cmp::Ordering;
+
+        let mut v: Vec<i32> = Vec::with_capacity(10);
+
+        v.push(0);
+        v.push(4);
+        v.push(1);
+        v.push(3);
+        v.push(2);
+
+        v.extend_from_slice(&[5, 6]);
+
+        v.extend([8, 7, 9].iter());
+
+        println!("{v:?}"); // [0, 4, 1, 3, 2, 5, 6, 8, 7, 9]
+
+        // sort natural order
+        v.sort();
+
+        println!("{v:?}"); // [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        // sort reversed natural order
+        v.sort_by(|a, b| {
+            if a > b {
+                Ordering::Less
+            } else if a < b {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        });
+
+        println!("{v:?}"); // [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+
+        println!("Last: {:?}", v.pop()); // Last: Some(0)
+
+        v.extend_from_slice(&[1, 2, 3]);
+
+        println!("{v:?}"); // [9, 8, 7, 6, 5, 4, 3, 2, 1, 1, 2, 3]
+
+        v.dedup();
+
+        println!("{v:?}"); // [9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3]
+    }
+
+    {
+        // LinkedList (head: Node, tail: Node, len)
+        //  Node: next, prev, element
+
+        use std::collections::LinkedList;
+
+        let mut list = LinkedList::<i32>::new();
+        list.push_back(1); // [1]
+        list.push_back(2); // [1,2]
+        list.push_back(3); // [1,2,3]
+        list.push_front(0); // [0,1,2,3];
+
+        println!("{list:?}"); // [0, 1, 2, 3]
+
+        let last: Option<i32> = list.pop_back();
+        println!("{:?}", last); // Ok(3)
+
+        let first: Option<i32> = list.pop_front();
+        println!("{:?}", first); // 0
+
+        println!("{list:?}"); // [1, 2]
+    }
+
+    {
+        use std::collections::VecDeque;
+
+        let mut v = VecDeque::from([1, 2, 3]);
+        v.insert(2, 99);
+        v.push_front(0);
+        println!("{v:?}"); // [0, 1, 2, 99, 3]
+
+        let last: Option<i32> = v.pop_back();
+        println!("{:?}", last); // Ok(3)
+
+        let first: Option<i32> = v.pop_front();
+        println!("{:?}", first); // 0
+
+        println!("{v:?}"); // [1, 2, 99]
+    }
+
+    {
+        // HashMap<K, V>
+        // K should implement Eq, Hash and PartialEq
+
+        use std::collections::HashMap;
+
+        let mut h: HashMap<i32, String> = HashMap::new();
+        h.insert(1, "one".to_string());
+        h.insert(2, "two".to_string());
+        h.insert(3, "three".to_string());
+        h.insert(4, "three".to_string());
+        h.insert(5, "three".to_string());
+
+        println!("Pairs:");
+        for (key, value) in h.iter() {
+            println!("  {key} -> {value}");
+        }
+
+        println!("Keys:");
+        for key in h.keys() {
+            println!("  {key}");
+        }
+
+        println!("Values:");
+        for value in h.values() {
+            println!("  {value}");
+        }
+
+        println!("Getting reference to value for key=1:");
+        if let Some(reference) = h.get(&1) {
+            println!("  {reference}");
+        }
+
+        println!("Extracting value for key=1:");
+        if let Some(value) = h.remove(&1) {
+            println!("  {value}");
+        }
+
+        println!("Contains key 1: {}", h.contains_key(&1));
+    }
+
+    {
+        // HashSet: wrapper for HashMap<T, ()>
+        use std::collections::HashSet;
+
+        let mut s: HashSet<String> = HashSet::new();
+        s.insert("one".to_string());
+        s.insert("two".to_string());
+        s.insert("three".to_string());
+
+        for value in s.iter() {
+            println!("{value}");
+        }
+
+        if let Some(reference) = s.get(&"one".to_string()) {
+            println!("{reference}");
+        }
+
+        if let Some(value) = s.take(&"one".to_string()) {
+            println!("{value}");
+        }
+
+        println!("HashSet contains 'one': {}", s.contains(&"one".to_string()));
+    }
+
+    {
+        // BTreeMap<K, V> K should implement Ord (impl of red-black tree)
+    }
+
+    {
+        // BinaryHeap<T> (priority queue) implemented as (binary heap) uses vector under the hood
+        // T should implement Ord
+
+        use std::collections::BinaryHeap;
+
+        let mut queue: BinaryHeap<i32> = BinaryHeap::new();
+        queue.push(2);
+        queue.push(7);
+        queue.push(1);
+        queue.push(4);
+        queue.push(9);
+
+        while let Some(element) = queue.pop() {
+            print!(" {element}"); // 9 7 4 2 1
+        }
+    }
+
     println!("end")
 }
 

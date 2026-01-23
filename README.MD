@@ -180,6 +180,10 @@ Codium with these plugins:
 
 <img src="./_forReadme/image1.png" />
 
+## VecDeque
+
+- <img src="./_forReadme/image copy.png" />
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
