@@ -278,6 +278,22 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
 - At some point, the fiber scheduler resumes execution of fiber X on an OS thread. By that time, the result of the I/O operation is already available to the fiber.
 - <img src="./_forReadme/image copy 6.png" />
 
+## Async rust
+
+- Rust language and standard library expose API that follows fibers approach. `async runtime` (which includes `executor` as a main element) can be implemented differently
+- async function in rust returns fiber(future) object
+- to get the result, the fiber(future) should be executed inside `async runtime`/ executor
+
+## Executor interaction with Future
+
+1. A Future is polled
+1. It is not ready → returns Poll::Pending
+1. The Future registers interest in some event (I/O, timer, channel)
+1. The Future (or the underlying system) stores the Waker from the Context
+1. When the event occurs → waker.wake() is called
+1. The executor re-polls the Future
+<img src="./_forReadme/image copy 7.png" />
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?

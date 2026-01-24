@@ -4,6 +4,7 @@ use std::{fmt::Debug, ops::Deref};
 
 mod mod1;
 mod mod2;
+mod my_executor;
 
 const CONST_EXAMPLE: &str = "CONST_EXAMPLE"; // can't be created via String::from("value") because on compile time value should be known;
 static STATIC_EXAMPLE: i32 = 123;
@@ -5032,6 +5033,110 @@ fn main() {
             .compose(|a| a * 2)
             .compose(|a| format!("result: {a}"));
         println!("{}", fiber.run()) // result: 4
+    }
+
+    {
+        use futures::executor::block_on;
+
+        async fn get_1() -> i32 {
+            1
+        }
+
+        let my_fiber = get_1();
+        let result = block_on(my_fiber);
+        println!("{}", result);
+    }
+
+    {
+        use futures::executor::block_on;
+        async fn load_number() -> i32 {
+            1
+        }
+
+        async fn transform_number(a: i32) -> i32 {
+            a + 1
+        }
+
+        async fn my_flow() -> i32 {
+            let number = load_number().await;
+            let transformed = transform_number(number).await;
+            transformed
+        }
+
+        let result = block_on(my_flow());
+        println!("{}", result);
+    }
+
+    // example of async code in java
+    // CompletableFuture<User> fetchUserById(Long userId) { ... }
+
+    // CompletableFuture<Address> fetchAddressById(Long addrId) { … }
+
+    // CompletableFuture<UserInfo> getUserInfo(Long userId) {
+    // return fetchUserById(userId)
+    //     .thenCompose(user ->
+    //     fetchAddressById(user.getAddrId())
+    //         .thenApply(addr ->
+    //         new UserInfo(user, addr)
+    //         )
+    //     );
+    // }
+
+    {
+        let closure = async || 1;
+        let my_fiber = closure();
+        let result = futures::executor::block_on(my_fiber);
+        println!("{}", result); // 1
+    }
+
+    {
+        let my_fiber = async { 1 };
+        let result = futures::executor::block_on(my_fiber);
+        println!("{}", result); // 1
+    }
+
+    // Typical flow:
+    // 1. A Future is polled
+    // 2. It is not ready → returns Poll::Pending
+    // 3. The Future registers interest in some event (I/O, timer, channel)
+    // 4. The Future (or the underlying system) stores the Waker from the Context
+    // 5. When the event occurs → waker.wake() is called
+    // 6. The executor re-polls the Future
+
+    {
+        use crate::my_executor::{Executor, Sleep};
+        use std::time::Duration;
+
+        async fn func_with_sleep() {
+            println!("Async function: before sleep");
+            Sleep::new(Duration::from_millis(200)).await;
+            println!("Async function: after sleep");
+        }
+
+        async fn calc_5() -> i32 {
+            5
+        }
+
+        let mut ex = Executor::new();
+
+        let fut = func_with_sleep();
+        ex.spawn(fut);
+
+        ex.spawn(async {
+            println!("Async closure: start");
+            async fn inner() {
+                println!("Async closure: inner function");
+            }
+            inner().await;
+
+            let a = calc_5().await;
+            println!("Async closure: async func call result {a}");
+            println!("Async closure: end");
+        });
+
+        ex.exec_blocking();
+
+        println!("All done");
     }
 
     println!("end")
