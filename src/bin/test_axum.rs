@@ -1,19 +1,27 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::LazyLock,
+    sync::{Arc, LazyLock, atomic::{AtomicU64, Ordering}},
 };
 
 use axum::{
     body::Body,
-    extract::{Path, Query},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Form, Json, Router,
 };
 
+struct AppState {
+    counter: AtomicU64,
+}
+
 #[tokio::main]
 async fn main() {
+    let shared_state = Arc::new(AppState {
+        counter: AtomicU64::new(0),
+    });
+
     let greeting = "Hello!".to_string();
     let app = Router::new()
         .route("/users", post(create_user))
@@ -38,7 +46,8 @@ async fn main() {
         .route("/handler_3", get(handler_3))
         .route("/handler_4", get(handler_4))
         .route("/handler_5", get(handler_5))
-        .route("/handler_6", get(handler_6));
+        .route("/handler_6", get(handler_6))
+        .with_state(shared_state);
 
     // Limitation: to create closure for handler function
     // fn make_hello_handler(greeting: String) -> impl AsyncFn() -> String {
@@ -70,8 +79,12 @@ struct CreateUserResponse {
     name: String,
 }
 
-async fn create_user(Json(input): Json<CreateUserRequest>) -> impl IntoResponse {
-    format!("Created user: {input:?}")
+async fn create_user(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<CreateUserRequest>,
+) -> impl IntoResponse {
+    let prev_value = state.counter.fetch_add(1, Ordering::Relaxed);
+    format!("Created user: {input:?}, value={}", prev_value + 1)
 }
 
 async fn create_user2(Form(input): Form<CreateUserRequest>) -> impl IntoResponse {
