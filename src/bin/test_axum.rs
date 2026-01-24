@@ -1,17 +1,21 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, LazyLock, atomic::{AtomicU64, Ordering}},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, LazyLock,
+    },
 };
 
 use axum::{
     body::Body,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{request::Parts, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Form, Json, Router,
 };
 
+#[derive(Debug)]
 struct AppState {
     counter: AtomicU64,
 }
@@ -23,7 +27,14 @@ async fn main() {
     });
 
     let greeting = "Hello!".to_string();
+
+    let users_v1_router = Router::new().route("/users", get(list_users_v1));
+    let users_v2_router = Router::new().route("/users", get(list_users_v2));
+
     let app = Router::new()
+        .fallback(my_fallback)
+        .nest("/api/v1", users_v1_router)
+        .nest("/api/v2", users_v2_router)
         .route("/users", post(create_user))
         .route("/users2", post(create_user2))
         .route("/users3", post(create_user3))
@@ -49,6 +60,15 @@ async fn main() {
         .route("/handler_6", get(handler_6))
         .with_state(shared_state);
 
+    // pros: each router instance can have its own state
+    let qusers_router = Router::new()
+        .route("/qusers", get(list_users))
+        .with_state(Arc::new(UserState {}));
+    let qproducts_router = Router::new()
+        .route("/qproducts", get(list_products))
+        .with_state(Arc::new(ProductState {}));
+    let app = app.merge(qusers_router).merge(qproducts_router);
+
     // Limitation: to create closure for handler function
     // fn make_hello_handler(greeting: String) -> impl AsyncFn() -> String {
     //     async move || format!("{}", greeting)
@@ -66,6 +86,12 @@ async fn main() {
 
     axum::serve(listener, app).await.unwrap();
 }
+
+#[derive(Debug)]
+struct UserState {}
+
+#[derive(Debug)]
+struct ProductState {}
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -208,4 +234,25 @@ async fn handler_6() -> Json<Person> {
     Json(Person {
         name: "John Doe".to_string(),
     })
+}
+
+async fn my_fallback(parts: Parts) -> Response {
+    let content = format!("Method: {}\nURL: {}", parts.method, parts.uri);
+    (StatusCode::NOT_FOUND, content).into_response()
+}
+
+async fn list_users(State(user_state): State<Arc<UserState>>) -> String {
+    format!("Users endpoint. UserState: {user_state:?}")
+}
+
+async fn list_products(State(state): State<Arc<ProductState>>) -> String {
+    format!("Products endpoint. State: {state:?}")
+}
+
+async fn list_users_v1() -> &'static str {
+    "Users endpoint Version 1"
+}
+
+async fn list_users_v2() -> &'static str {
+    "Users endpoint Version 2"
 }

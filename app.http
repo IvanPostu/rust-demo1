@@ -46,3 +46,7 @@ Content-Type: application/json
 {
     "name": ""
 }
+
+
+GET http://0.0.0.0:8080/example404
+Example: test1
