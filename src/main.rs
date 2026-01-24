@@ -3132,7 +3132,7 @@ fn main() {
                 // create a new file or rewrite existing
                 let mut file = File::create("file.txt")?;
                 file.write_all("First line\n".as_bytes())?;
-                file.flush()?; 
+                file.flush()?;
                 file.write_all("Second line\n".as_bytes())?;
             }
 
@@ -3337,7 +3337,7 @@ fn main() {
         use std::thread;
 
         fn print_nums() {
-            let thread_id = thread::current().id();  
+            let thread_id = thread::current().id();
             for i in 1..5 {
                 println!("thread: {thread_id:?}, num: {i}");
                 thread::sleep(std::time::Duration::from_millis(100));
@@ -5590,6 +5590,192 @@ fn main() {
                 };
                 let response = serve_request(request).await;
                 println!("Response: {response:?}");
+            }
+        }
+
+        _main1();
+    }
+
+    {
+        // not possible to replace dbStorage with mock for unit-testing
+        fn main1() {
+            let product_storage = ProductDbStorage {};
+            let product_service = ProductService { product_storage };
+            println!("All products: {:?}", product_service.get_all_products())
+        }
+
+        #[derive(Debug)]
+        struct Product {}
+
+        struct ProductService {
+            product_storage: ProductDbStorage,
+        }
+        impl ProductService {
+            fn get_all_products(&self) -> Vec<Product> {
+                self.product_storage.list_products()
+            }
+        }
+
+        struct ProductDbStorage {
+            // connect to DB
+        }
+        impl ProductDbStorage {
+            fn list_products(&self) -> Vec<Product> {
+                Vec::new()
+            }
+        }
+
+        main1();
+    }
+
+    {
+        // more testable
+        fn main1() {
+            let product_storage = ProductDbStorage {};
+            let product_service = ProductService {
+                product_storage: Box::new(product_storage),
+            };
+            println!("All products: {:?}", product_service.get_all_products())
+        }
+
+        #[derive(Debug)]
+        struct Product {}
+
+        struct ProductService {
+            // fails on compile time if methods are changed to async, because return type size is unknown on compile time and due to that vtable can't be constructed
+            // Pin<Box> is solution
+            product_storage: Box<dyn ProductStorage>,
+        }
+        impl ProductService {
+            fn get_all_products(&self) -> Vec<Product> {
+                self.product_storage.list_products()
+            }
+        }
+
+        trait ProductStorage {
+            fn list_products(&self) -> Vec<Product>;
+        }
+
+        struct ProductDbStorage {}
+
+        impl ProductStorage for ProductDbStorage {
+            fn list_products(&self) -> Vec<Product> {
+                Vec::new()
+            }
+        }
+
+        // #[test]
+        fn _test_product_service() {
+            // Заглушка для ProductStorage
+            struct ProductStorageMock;
+            impl ProductStorage for ProductStorageMock {
+                fn list_products(&self) -> Vec<Product> {
+                    vec![Product {}]
+                }
+            }
+
+            let sut = ProductService {
+                product_storage: Box::new(ProductStorageMock), // заглушка
+            };
+
+            assert_eq!(sut.get_all_products().len(), 1);
+        }
+
+        main1();
+    }
+
+    {
+        // all this bolierplate Pin<Box>
+        // can be done automatically by async-trait dependency
+        use std::pin::Pin;
+
+        #[tokio::main]
+        async fn main1() {
+            let product_storage = ProductDbStorage {};
+            let product_service = ProductService {
+                product_storage: Box::new(product_storage),
+            };
+            println!(
+                "All products: {:?}",
+                product_service.get_all_products().await
+            )
+        }
+
+        #[derive(Debug)]
+        struct Product {}
+
+        struct ProductService {
+            product_storage: Box<dyn ProductStorage + Send + Sync>,
+        }
+        impl ProductService {
+            async fn get_all_products(&self) -> Vec<Product> {
+                self.product_storage.list_products().await
+            }
+        }
+
+        trait ProductStorage {
+            fn list_products<'a, 't>(
+                &'a self,
+            ) -> Pin<Box<dyn Future<Output = Vec<Product>> + Send + 't>>
+            where
+                'a: 't,
+                Self: 't;
+        }
+
+        struct ProductDbStorage {}
+
+        impl ProductStorage for ProductDbStorage {
+            fn list_products<'a, 't>(
+                &'a self,
+            ) -> Pin<Box<dyn Future<Output = Vec<Product>> + Send + 't>>
+            where
+                'a: 't,
+                Self: 't,
+            {
+                Box::pin(async move { Vec::new() })
+            }
+        }
+
+        main1();
+    }
+
+    {
+        // async-trait usage
+        #[tokio::main]
+        async fn _main1() {
+            let product_storage = ProductDbStorage {};
+            let product_service = ProductService {
+                product_storage: Box::new(product_storage),
+            };
+            println!(
+                "All products: {:?}",
+                product_service.get_all_products().await
+            )
+        }
+
+        #[derive(Debug)]
+        struct Product {}
+
+        struct ProductService {
+            product_storage: Box<dyn ProductStorage + Send + Sync>,
+        }
+        impl ProductService {
+            async fn get_all_products(&self) -> Vec<Product> {
+                self.product_storage.list_products().await
+            }
+        }
+
+        #[async_trait::async_trait]
+        trait ProductStorage {
+            async fn list_products(&self) -> Vec<Product>;
+        }
+
+        struct ProductDbStorage {}
+
+        #[async_trait::async_trait]
+        impl ProductStorage for ProductDbStorage {
+            async fn list_products(&self) -> Vec<Product> {
+                Vec::new()
             }
         }
 

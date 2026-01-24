@@ -814,6 +814,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
+ "async-trait",
  "chrono",
  "config",
  "futures",
