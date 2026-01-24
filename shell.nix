@@ -6,19 +6,17 @@ pkgs.mkShell {
   name = "app-shell";
 
   buildInputs = with pkgs; [
-    rustc
-    cargo
+    rustup
     gcc
-    rustfmt
-    clippy
   ];
 
   LANG = "en_US.UTF-8";
   LC_ALL = "en_US.UTF-8";
 
-  RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-
   shellHook = ''
         export PROJECT_ROOT="${PROJECT_ROOT}"
+        export RUSTUP_HOME="$PROJECT_ROOT/.rustup"
+        export CARGO_HOME="$PROJECT_ROOT/.cargo"
+        export PATH="$CARGO_HOME/bin:$PATH"
   '';
 }

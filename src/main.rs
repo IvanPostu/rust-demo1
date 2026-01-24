@@ -3185,7 +3185,8 @@ fn main() {
     {
         use std::{cmp::Ordering, fs::File, ops::Deref};
 
-        // Newtype обёртка для File.
+        // Newtype wrapper for File.
+        #[allow(dead_code)]
         struct FileWrapper(File);
 
         impl PartialEq for FileWrapper {
@@ -3740,7 +3741,7 @@ fn main() {
             }
         });
         let _ = thread::spawn(move || loop {
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_millis(200));
             match rcv.recv() {
                 Ok(_) => (),
                 Err(_) => break,
@@ -4719,6 +4720,216 @@ fn main() {
         let now_02_30: DateTime<FixedOffset> = now_utc.with_timezone(&tz_02_30);
         println!("UTC:    {now_utc}"); // UTC:    2025-12-15 16:42:19.043035374 UTC
         println!("+02:30: {now_02_30}"); // +02:30: 2025-12-15 19:12:19.043036305 +02:30
+    }
+
+    {
+        #[allow(unused)]
+        fn main1() {
+            #[allow(unused)]
+            use tracing_appender::rolling::{RollingFileAppender, Rotation};
+            #[allow(unused)]
+            use tracing_subscriber::filter::LevelFilter;
+            #[allow(unused)]
+            use tracing_subscriber::fmt::writer::MakeWriterExt;
+
+            // .with_writer(stdout_appender.and(file_appender))
+            // let file_appender = RollingFileAppender::builder()
+            //     .rotation(Rotation::DAILY)
+            //     .max_log_files(10)
+            //     .filename_prefix("app")
+            //     .filename_suffix("log")
+            //     .build("logs") // dir name
+            //     .unwrap();
+            let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stdout());
+
+            tracing_subscriber::fmt()
+                .with_writer(non_blocking)
+                .with_ansi(false)
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_target(true)
+                .with_file(true)
+                .with_line_number(true)
+                // .with_max_level(LevelFilter::DEBUG) // by default INFO and above
+                .with_env_filter("sequence_10::mod1=debug,test_rust::mod_b=warn,info")
+                .json()
+                .init();
+
+            // set filter via builder: programatically
+            // let filter = tracing_subscriber::EnvFilter::from_default_env()
+            //     .add_directive("test_rust::mod_a=debug".parse().unwrap())
+            //     .add_directive("test_rust::mod_b=warn".parse().unwrap())
+            //     .add_directive("info".parse().unwrap());
+            // tracing_subscriber::fmt().with_env_filter(filter).init();
+
+            // set it via env variable
+            // export RUST_LOG="test_rust::mod_a=debug,test_rust::mod_b=warn,info"
+            // cargo run
+            //
+            // tracing_subscriber::fmt()
+            //     .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            //     .init();
+
+            tracing::trace!("Hello");
+            tracing::debug!("Hello");
+            tracing::info!("Hello");
+            tracing::warn!("Hello");
+            tracing::error!("Hello");
+
+            mod1::get_num_5();
+
+            // write to file
+            // let file = std::fs::File::create("app.log").unwrap();
+            // tracing_subscriber::fmt()
+            //     .with_writer(file)
+            //     .with_ansi(false)
+            //     .init();
+            // tracing::info!("Hello");
+
+            // append logic
+            // crate: tracing-appender (nonblocking io, create new log file periodically, delete old files)
+        }
+        // main1();
+    }
+
+    {
+        use tracing_appender::rolling::{RollingFileAppender, Rotation};
+        use tracing_subscriber::{
+            fmt::layer, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
+        };
+
+        let file_appender = RollingFileAppender::builder()
+            .rotation(Rotation::DAILY)
+            .max_log_files(10)
+            .filename_prefix("app")
+            .filename_suffix("log")
+            .build("logs") // dir name
+            .unwrap();
+        let env_filter = EnvFilter::new("sequence_10::mod1=debug,test_rust::mod_b=warn,info");
+        let file_layer = layer()
+            .json()
+            .with_thread_ids(true)
+            .with_file(true)
+            .with_target(true)
+            .with_line_number(true)
+            .with_thread_names(true)
+            .with_ansi(false)
+            // .with_writer(tracing_appender::rolling::daily("logs", "app.log"));
+            .with_writer(file_appender);
+
+        let stdout_layer = layer()
+            .with_thread_ids(true)
+            .with_file(true)
+            .with_target(true)
+            .with_line_number(true)
+            .with_thread_names(true)
+            .with_writer(std::io::stdout);
+
+        tracing_subscriber::registry()
+            .with(env_filter) // registry() intstead of fmt()
+            .with(stdout_layer)
+            .with(file_layer)
+            .init();
+
+        tracing::trace!("Hello");
+        tracing::debug!("Hello");
+        tracing::info!("Hello");
+        tracing::warn!("Hello");
+        tracing::error!("Hello");
+
+        mod1::get_num_5();
+    }
+
+    {
+        use tracing::{span::Entered, Span};
+
+        let my_span: Span = tracing::span!(tracing::Level::INFO, "span1", attr1 = 5);
+        let _enter: Entered<'_> = my_span.enter();
+
+        tracing::info!("Hello");
+    }
+
+    {
+        let my_span = tracing::span!(tracing::Level::INFO, "span1", attr1 = 5);
+        {
+            let mut _enter = my_span.enter();
+            tracing::info!("Hello 1");
+        }
+        tracing::info!("Hello 2");
+    }
+
+    {
+        use tracing::{span::EnteredSpan, Level};
+
+        let my_span: EnteredSpan = tracing::span!(Level::INFO, "span1", attr1 = 5).entered();
+        tracing::info!("Hello 1");
+        my_span.exit();
+        tracing::info!("Hello 2");
+    }
+
+    {
+        let span1 = tracing::span!(tracing::Level::INFO, "span1", attr1 = 5);
+        let _enter1 = span1.enter();
+
+        let span2 = tracing::span!(tracing::Level::INFO, "span2", attr2 = 7);
+        let _enter2 = span2.enter();
+
+        tracing::info!("Hello");
+    }
+
+    {
+        let span1 = tracing::span!(tracing::Level::INFO, "span1", attr1 = 5);
+        let span2 = tracing::span!(tracing::Level::INFO, "span2", attr2 = 7);
+
+        let _enter1 = span1.enter();
+        let _enter2 = span2.enter(); // override span1
+
+        tracing::info!("Hello");
+    }
+
+    {
+        let span1 = tracing::span!(tracing::Level::INFO, "span1", attr1 = 5);
+        let span2 = tracing::span!(parent: &span1, tracing::Level::INFO, "span2", attr2 = 7);
+
+        let _enter1 = span1.enter();
+        let _enter2 = span2.enter();
+
+        tracing::info!("Hello");
+    }
+
+    {
+        #[tracing::instrument]
+        fn func(param1: i32, param2: &str) -> String {
+            tracing::info!("Hello");
+            String::from("RESULT")
+        }
+
+        #[tracing::instrument(
+            name = "span_func",
+            level = "info",
+            fields(attr1 = %param1, attr2="xxx"),
+            skip(param1),
+            ret
+        )]
+        fn func2(param1: i32, param2: &str) -> String {
+            tracing::info!("Hello");
+            String::from("RESULT")
+        }
+
+        let _ = func(1, "PARAM2");
+
+        let _ = func2(1, "PARAM2");
+    }
+
+    {
+        let span = tracing::span!(tracing::Level::INFO, "span1", attr1 = 5);
+        let _entered = span.enter();
+
+        func();
+
+        fn func() {
+            tracing::info!("Hello");
+        }
     }
 
     println!("end")

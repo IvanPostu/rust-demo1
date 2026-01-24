@@ -3,6 +3,10 @@
 Minimal rust project
 
 ```sh
+rustup default stable
+# or
+rustup toolchain install nightly
+
 # Build dev/debug
 cargo build
 #Build release
@@ -211,6 +215,14 @@ Codium with these plugins:
 - Rust doesn't have a std serialize logic
 - there is `serde` crate which exposes Serialize/Deserialize traits which are considered by all serialization dependencies
 - <img src="./_forReadme/image copy 2.png" />
+
+## Logging
+
+- `tracing` - facade (plusses: supports async & can be used fordeps. that use `log` facade)
+  - `tracing-subscriber` - implementation
+- `log` - facade
+  - `env_logger`
+  - `log4rs`
 
 ## Q&A
 
