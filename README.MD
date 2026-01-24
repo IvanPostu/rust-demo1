@@ -226,6 +226,58 @@ Codium with these plugins:
   - `env_logger`
   - `log4rs`
 
+## Blocking vs. Non-blocking operation
+
+- Blocking
+  - `t1` makes a system call requesting a blocking I/O operation, for example, reading bytes from an open network connection
+  - `t1` “falls asleep” and is marked in the thread table as waiting to be awakened once the I/O operation completes
+  - `At` some point, the kernel performs the actual read from the device and places the data into a buffer for the program to read
+  - `t1`'s entry in the thread table is updated. The thread is now ready to continue execution
+  - The scheduler assigns a time quantum to `t1`
+  - `t1` wakes up and reads the data that is already available in the buffer
+- Non-blocking
+  - Receive multiple connections from clients, and each connection is represented by a network socket.
+    - Instead of immediately reading input data from each socket, we collect the socket descriptors and store them in an array
+  - All descriptors are passed together to the appropriate system call (for example, `epoll_wait`)
+    - Depending on the specific operating system, the non-blocking API differs: on Linux it may be `select`, `poll`, `epoll`, or `io_uring`; on Windows — `IOCP`; on BSD/macOS — `kqueue`, etc.)
+  - The `epoll_wait` system call blocks the calling thread and, when it wakes up, returns a list of descriptors for which data is ready to be read.
+  - We iterate over the list of ready descriptors (returned by `epoll_wait`) and, for each one, first read all available bytes and then immediately write them back to the socket. After that, we close the socket
+  - Next, we call `epoll_wait` again for the remaining descriptors, and repeat this process until all of them have been processed
+- <img src="./_forReadme/image copy 3.png" />
+
+## Usage of `epool` in Linux
+
+```c
+// see linux_epool_example.c
+```
+
+## JS's old approach - callbacks
+
+- <img src="./_forReadme/image copy 4.png" />
+
+## Actor approach
+
+- Do not call each other directly, they use queue for communication
+- <img src="./_forReadme/image copy 5.png" />
+- Erlang/OTP uses this approach
+- WhatsApp uses it for backend
+
+## Fibers - a.k.a. coroutines, green threads, user space threads
+
+A fiber scheduler typically has two pools of operating system threads at its disposal:
+
+- threads for executing fiber computations
+- a thread dedicated to performing input/output operations (an I/O thread)
+
+With such a scheduler, we can implement our own I/O API specifically for fibers, which works as follows:
+
+- An I/O operation is invoked in fiber X.
+- The scheduler removes this fiber from execution on the OS thread and places it into a waiting queue. It then takes another fiber that is ready to run from the queue and resumes its execution on the OS thread.
+- The I/O request is sent to a dedicated I/O thread, which continuously processes I/O requests using `epoll` or another appropriate API.
+- When the dedicated I/O thread completes the I/O operation for fiber X, it stores the result for that fiber and marks the fiber as ready to continue execution.
+- At some point, the fiber scheduler resumes execution of fiber X on an OS thread. By that time, the result of the I/O operation is already available to the fiber.
+- <img src="./_forReadme/image copy 6.png" />
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
@@ -276,6 +328,10 @@ Codium with these plugins:
   - `sync_channel` - has size, if is exceeded, producer waits in blocked state until there is space for element
 - How to add a dependency with explicit feature?
   - `cargo add serde --features "derive"`
+- Difference between `concurrency` and `parallelism`?
+  - `parallelism` - a concept describing the physical execution of instructions on two different processors or cores
+  - `concurrency` - a concept describing the logical execution of instructions across multiple processors or cores
+    - “logical” is the key word here — concurrency can happen even on a single core via interleaving, such problems as `data race`are still present
 
 ## References
 

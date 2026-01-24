@@ -4974,6 +4974,66 @@ fn main() {
         println!("{app_config:?}");
     }
 
+    {
+        use std::{any::Any, collections::VecDeque, marker::PhantomData};
+
+        trait Stage {
+            fn exec(&self, arg: Box<dyn Any>) -> Box<dyn Any>;
+        }
+
+        struct Func<T: 'static, R: 'static>(Box<dyn Fn(T) -> R>);
+
+        struct Fiber<R> {
+            stages: VecDeque<Box<dyn Stage>>,
+            result_type: PhantomData<R>,
+        }
+
+        impl<R: 'static> Fiber<R> {
+            pub fn from(f: impl Fn(()) -> R + 'static) -> Fiber<R> {
+                let func = Func(Box::new(f));
+                let stage: Box<dyn Stage> = Box::new(func);
+                let mut stages = VecDeque::new();
+                stages.push_back(stage);
+                Fiber {
+                    stages,
+                    result_type: PhantomData::<R>,
+                }
+            }
+
+            pub fn compose<R2: 'static>(self, f: impl Fn(R) -> R2 + 'static) -> Fiber<R2> {
+                let func = Func(Box::new(f));
+                let mut stages = self.stages;
+                stages.push_back(Box::new(func));
+                Fiber {
+                    stages,
+                    result_type: PhantomData::<R2>,
+                }
+            }
+
+            pub fn run(mut self) -> R {
+                let mut arg: Box<dyn Any> = Box::new(());
+                while let Some(stage) = self.stages.pop_front() {
+                    arg = stage.exec(arg);
+                }
+                *arg.downcast().unwrap()
+            }
+        }
+
+        impl<T: 'static, R: 'static> Stage for Func<T, R> {
+            fn exec(&self, arg: Box<dyn Any>) -> Box<dyn Any> {
+                let t: T = *arg.downcast().unwrap();
+                let r = self.0.as_ref()(t);
+                Box::new(r)
+            }
+        }
+
+        let fiber = Fiber::from(|()| 1)
+            .compose(|a| a + 1)
+            .compose(|a| a * 2)
+            .compose(|a| format!("result: {a}"));
+        println!("{}", fiber.run()) // result: 4
+    }
+
     println!("end")
 }
 
