@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::future::Future;
 use std::thread::sleep;
 use std::{fmt::Debug, ops::Deref};
 
@@ -3131,7 +3132,7 @@ fn main() {
                 // create a new file or rewrite existing
                 let mut file = File::create("file.txt")?;
                 file.write_all("First line\n".as_bytes())?;
-                file.flush()?; // Очистка буфера вывода
+                file.flush()?; 
                 file.write_all("Second line\n".as_bytes())?;
             }
 
@@ -3336,7 +3337,7 @@ fn main() {
         use std::thread;
 
         fn print_nums() {
-            let thread_id = thread::current().id(); // ID текущего потока
+            let thread_id = thread::current().id();  
             for i in 1..5 {
                 println!("thread: {thread_id:?}, num: {i}");
                 thread::sleep(std::time::Duration::from_millis(100));
@@ -3776,18 +3777,18 @@ fn main() {
 
         thread::scope(|s| {
             s.spawn(|| {
-                for _ in 0..100 {
+                for _ in 0..50 {
                     let mut guard = COUNTER.lock().unwrap();
                     let curr_val = *guard;
-                    thread::sleep(Duration::from_millis(10));
+                    thread::sleep(Duration::from_millis(2));
                     *guard = curr_val + 1;
                 }
             });
             s.spawn(|| {
-                for _ in 0..100 {
+                for _ in 0..50 {
                     let mut guard = COUNTER.lock().unwrap();
                     let curr_val = *guard;
-                    thread::sleep(Duration::from_millis(10));
+                    thread::sleep(Duration::from_millis(2));
                     *guard = curr_val + 1;
                 }
             });
@@ -5137,6 +5138,462 @@ fn main() {
         ex.exec_blocking();
 
         println!("All done");
+    }
+
+    {
+        // for backend applications
+        // The executor must:
+
+        // - ... have a thread pool for executing fibers that are dedicated solely to computation. This pool should not exceed the number of CPU cores.
+        // - ... provide its own non-blocking API, at least for network operations.
+        // - ... have a thread pool with a single high-priority thread that will handle non-blocking I/O operations via `epoll`, `io_uring`, `IOCP`, or `kqueue`.
+        // - ... for I/O operations that do not have a non-blocking variant (e.g., DNS calls), maintain a thread pool with unlimited size.
+
+        // tokio adoes all this
+    }
+
+    {
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open("shell.nix").unwrap();
+
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+
+        println!("{}", contents);
+    }
+
+    {
+        use tokio::fs::File;
+        use tokio::io::AsyncReadExt;
+
+        // #[tokio::main] wraps method as main2
+        async fn main1() {
+            let mut file = File::open("shell.nix").await.unwrap();
+
+            let mut contents = String::new();
+            file.read_to_string(&mut contents).await.unwrap();
+
+            println!("{}", contents);
+        }
+
+        // main is wrapped as
+        fn main2() {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                main1().await;
+            })
+        }
+
+        main2();
+    }
+
+    {
+        use tokio::task::{JoinError, JoinHandle};
+
+        async fn get_1() -> i32 {
+            1
+        }
+
+        #[tokio::main]
+        async fn main1() {
+            let t1: JoinHandle<i32> = tokio::spawn(get_1());
+            let result1: Result<i32, JoinError> = t1.await;
+            println!("{result1:?}"); // Ok(1)
+
+            let t2: JoinHandle<i32> = tokio::spawn(async { 5 });
+            let result2: Result<i32, JoinError> = t2.await;
+            println!("{result2:?}"); // Ok(5)
+        }
+
+        main1();
+    }
+
+    {
+        use std::time::Duration;
+
+        #[tokio::main]
+        async fn _main1() {
+            let mut handles = Vec::new();
+            for _ in 1..1000_000 {
+                let t = tokio::spawn(async {
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                });
+                handles.push(t);
+            }
+            for handle in handles {
+                let _ = handle.await;
+            }
+        }
+
+        // main1();
+    }
+
+    {
+        // tokio has its own Mutex, RwLock and Barrier
+
+        use std::sync::Arc;
+        use tokio::sync::Mutex;
+
+        #[tokio::main]
+        async fn _main1() {
+            let m: Arc<Mutex<i32>> = Arc::new(Mutex::new(1));
+
+            let t = tokio::spawn({
+                let m = m.clone();
+                async move {
+                    let mut guard = m.lock().await;
+                    *guard = 2;
+                }
+            });
+            let _ = t.await;
+
+            println!("{m:?}");
+        }
+
+        _main1();
+    }
+
+    {
+        // tokio has its own mpsc channels
+
+        use std::time::Duration;
+        use tokio::sync::mpsc; // multiple producer single consumer
+        use tokio::time::sleep;
+
+        #[tokio::main]
+        async fn _main1() {
+            let (snd, mut rcv) = mpsc::unbounded_channel::<i32>();
+
+            tokio::spawn({
+                let snd = snd.clone();
+                async move {
+                    let _ = snd.send(1);
+                }
+            });
+            tokio::spawn({
+                let snd = snd.clone();
+                async move {
+                    let _ = snd.send(2);
+                }
+            });
+
+            while let Some(msg) = tokio::select! {
+                msg = rcv.recv()                    => msg,
+                _   = sleep(Duration::from_millis(300)) => None,
+            } {
+                println!("Received: {msg}");
+            }
+        }
+
+        _main1();
+    }
+
+    {
+        use tokio::sync::oneshot;
+
+        #[tokio::main]
+        async fn _main1() {
+            let (snd, rcv) = oneshot::channel::<i32>();
+
+            let _ = snd.send(1); // ownership for sender is lost, which is expected
+
+            let r = rcv.await;
+
+            println!("{r:?}"); // Ok(1)
+        }
+
+        _main1();
+    }
+
+    {
+        use std::{thread::sleep, time::Duration};
+        use tokio::sync::broadcast::{self, Receiver};
+
+        fn spawn_receiver(name: &'static str, rcv: &Receiver<i32>) {
+            let mut rcv = rcv.resubscribe();
+            tokio::spawn({
+                async move {
+                    println!("{name} > msg: {:?}", rcv.recv().await);
+                }
+            });
+        }
+
+        #[tokio::main]
+        async fn _main1() {
+            let (snd, rcv) = broadcast::channel::<i32>(100);
+
+            spawn_receiver("rcv-1", &rcv);
+            spawn_receiver("rcv-2", &rcv);
+            spawn_receiver("rcv-3", &rcv);
+
+            let _ = snd.send(5);
+
+            sleep(Duration::from_millis(300));
+        }
+
+        _main1();
+    }
+
+    {
+        use tokio::sync::watch;
+
+        #[tokio::main]
+        async fn _main1() {
+            let (snd, rcv) = watch::channel::<i32>(0);
+
+            println!("Has new messages: {}", rcv.has_changed().unwrap());
+
+            let _ = snd.send(1);
+            let _ = snd.send(2);
+            let _ = snd.send(3);
+
+            {
+                let mut rcv1 = rcv.clone();
+                println!("Receiver 1 changed: {}", rcv1.has_changed().unwrap());
+                {
+                    let guard = rcv1.borrow_and_update();
+                    println!("Receiver 1 value: {:?}", *guard);
+                }
+                println!("Receiver 1 changed: {}", rcv1.has_changed().unwrap());
+            }
+
+            {
+                let mut rcv2 = rcv.clone();
+                println!("Receiver 2 changed: {}", rcv2.has_changed().unwrap());
+                {
+                    let guard = rcv2.borrow_and_update();
+                    println!("Receiver 2 value: {:?}", *guard);
+                }
+                println!("Receiver 2 changed: {}", rcv2.has_changed().unwrap());
+            }
+        }
+
+        _main1();
+    }
+
+    {
+        use async_channel::{Receiver, Sender};
+        use std::time::Duration;
+        use tokio::{task::JoinHandle, time::sleep};
+
+        fn make_producer(snd: &Sender<i32>, value: i32) {
+            let snd = snd.clone();
+            tokio::spawn(async move {
+                let _ = snd.send(value).await;
+            });
+        }
+
+        fn make_worker(rcv: &Receiver<i32>, name: &'static str) -> JoinHandle<()> {
+            let rcv = rcv.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        msg = rcv.recv() => {
+                            println!("{name} > received: {:?}", msg.unwrap());
+                            sleep(Duration::from_millis(100)).await;
+                        }
+                        _ = sleep(Duration::from_millis(300)) => break,
+                    }
+                }
+            })
+        }
+
+        #[tokio::main]
+        async fn _main1() {
+            let (snd, rcv) = async_channel::unbounded::<i32>();
+            make_producer(&snd, 1);
+            make_producer(&snd, 2);
+            make_producer(&snd, 3);
+            make_producer(&snd, 4);
+
+            let t1 = make_worker(&rcv, "worker-1");
+            let t2 = make_worker(&rcv, "worker-2");
+            let _ = t1.await;
+            let _ = t2.await;
+        }
+
+        _main1();
+    }
+
+    {
+        use std::{rc::Rc, time::Duration};
+
+        use tokio::{sync::Mutex, task::LocalSet, time::sleep};
+
+        #[tokio::main]
+        async fn _main1() {
+            let counter = Rc::new(Mutex::new(0)); // Rc doesn't implement Send
+            let local_set = LocalSet::new(); // gurarntees that rask is executed on the same thread
+            for _ in 0..100 {
+                let counter = counter.clone();
+                local_set.spawn_local(async move {
+                    sleep(Duration::from_millis(200)).await;
+                    *counter.lock().await += 1;
+                });
+            }
+            local_set.await;
+            println!("{}", *counter.lock().await);
+        }
+
+        _main1();
+    }
+
+    {
+        tokio::task_local! {
+            pub static NUM: i32;
+        }
+
+        fn print_num() {
+            println!("NUM = {}", NUM.get());
+        }
+
+        #[tokio::main]
+        async fn _main1() {
+            NUM.scope(1, async { print_num() }).await;
+            NUM.scope(2, async { print_num() }).await;
+        }
+        // get Copy
+
+        _main1();
+    }
+
+    {
+        tokio::task_local! {
+            pub static NAME: String;
+        }
+
+        fn print_name() {
+            NAME.with(|name| println!("NAME = {name}"))
+        }
+
+        #[tokio::main]
+        async fn _main1() {
+            NAME.scope("A".to_string(), async { print_name() }).await;
+
+            NAME.scope("B".to_string(), async { print_name() }).await;
+        }
+        // get reference
+        _main1();
+    }
+
+    {
+        // task local real world usage
+
+        use std::{cell::RefCell, collections::HashMap};
+
+        tokio::task_local! {
+            pub static USER: RefCell<UserInfo>;
+        }
+
+        #[derive(PartialEq, Eq)]
+        enum Role {
+            CUSTOMER,
+            GUEST,
+        }
+
+        struct UserInfo {
+            id: String,
+            role: Role, // is calculated base on ID
+        }
+
+        struct Request {
+            path: String,
+            headers: HashMap<String, String>,
+            payload: String,
+        }
+
+        async fn auth_middleware<F, Fut>(
+            request: Request,
+            request_handler: F,
+        ) -> Result<String, String>
+        where
+            F: Fn(Request) -> Fut,
+            Fut: Future<Output = Result<String, String>>,
+        {
+            let Some(user_id) = request.headers.get("USER-ID") else {
+                return Err("No USER-ID header".to_string());
+            };
+            let Some(role) = find_user_role(user_id.as_str()) else {
+                return Err(format!("No role for user with ID={user_id}"));
+            };
+            USER.scope(
+                RefCell::new(UserInfo {
+                    id: user_id.to_string(),
+                    role,
+                }),
+                async move { request_handler(request).await },
+            )
+            .await
+        }
+
+        fn find_user_role(id: &str) -> Option<Role> {
+            match id {
+                "ID_1111" => Some(Role::CUSTOMER),
+                "ID_2222" => Some(Role::GUEST),
+                _ => None,
+            }
+        }
+
+        async fn handle_submit_order(request: Request) -> Result<String, String> {
+            submit_user_order(request.payload).await
+        }
+
+        async fn submit_user_order(order: String) -> Result<String, String> {
+            USER.with(|u| {
+                if u.borrow().role != Role::CUSTOMER {
+                    Err(format!("User {} is not authorized", u.borrow().id))
+                } else {
+                    Ok(format!("Order submitted: {order}"))
+                }
+            })
+        }
+
+        async fn serve_request(request: Request) -> Result<String, String> {
+            match request.path.as_str() {
+                "/orders/submit" => auth_middleware(request, handle_submit_order).await,
+                _ => Err("Unexpected path".to_string()),
+            }
+        }
+
+        #[tokio::main]
+        async fn _main1() {
+            // request without session ID
+            {
+                let request = Request {
+                    path: "/orders/submit".to_string(),
+                    headers: HashMap::new(),
+                    payload: "Test payload 1".to_string(),
+                };
+                let response = serve_request(request).await;
+                println!("Response: {response:?}");
+            }
+
+            {
+                let headers = HashMap::from([("USER-ID".to_string(), "ID_1111".to_string())]);
+                let request = Request {
+                    path: "/orders/submit".to_string(),
+                    headers,
+                    payload: "Test payload 2".to_string(),
+                };
+                let response = serve_request(request).await;
+                println!("Response: {response:?}");
+            }
+
+            {
+                let headers = HashMap::from([("USER-ID".to_string(), "ID_2222".to_string())]);
+                let request = Request {
+                    path: "/orders/submit".to_string(),
+                    headers,
+                    payload: "Test payload 3".to_string(),
+                };
+                let response = serve_request(request).await;
+                println!("Response: {response:?}");
+            }
+        }
+
+        _main1();
     }
 
     println!("end")
