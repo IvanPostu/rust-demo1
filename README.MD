@@ -4,10 +4,12 @@ Minimal rust project
 
 ```sh
 rustup default stable
-# or
-rustup toolchain install nightly
+# or rustup toolchain install nightly
 
+# run main
 cargo run --bin sequence_10
+# run other
+cargo run --bin test_axum
 
 # Build dev/debug
 cargo build
@@ -244,6 +246,14 @@ Codium with these plugins:
   - We iterate over the list of ready descriptors (returned by `epoll_wait`) and, for each one, first read all available bytes and then immediately write them back to the socket. After that, we close the socket
   - Next, we call `epoll_wait` again for the remaining descriptors, and repeat this process until all of them have been processed
 - <img src="./_forReadme/image copy 3.png" />
+
+## Crates for backend development
+
+- `Axum` - lightweight and fast web framework for building HTTP servers
+- `SQLx` - interact with relation DBs
+- `Tower` - library for building client side / server side logic
+- `Utopia` - library for OpenAPI / Swagger
+- `Metrics` - library for metrics
 
 ## Usage of `epool` in Linux
 

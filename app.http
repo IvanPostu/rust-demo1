@@ -1,0 +1,48 @@
+# curl -I http://0.0.0.0:8080/handler_6
+
+GET http://0.0.0.0:8080/handler_6
+
+GET http://0.0.0.0:8080/greeting2/jim/test
+
+GET http://0.0.0.0:8080/math/add/2a2/2
+
+GET http://0.0.0.0:8080/hello?name=qwerty
+Example: test1
+
+GET http://0.0.0.0:8080/hello
+Example: test1
+
+GET http://0.0.0.0:8080/handler_2?name=qwerty
+
+# curl -i --request POST \
+#   --url http://0.0.0.0:8080/users \
+#   --header 'Content-Type: application/json' \
+#   --header 'User-Agent: vscode-restclient' \
+#   --data '{"name":"Test"}'
+
+POST http://0.0.0.0:8080/users
+Content-Type: application/json
+
+{
+    "name":"Test"
+}
+
+POST http://0.0.0.0:8080/users2
+Content-Type: application/x-www-form-urlencoded
+
+name=Test
+
+
+POST http://0.0.0.0:8080/users3
+Content-Type: application/json
+
+{
+    "name":"Test"
+}
+
+POST http://0.0.0.0:8080/users3
+Content-Type: application/json
+
+{
+    "name": ""
+}
