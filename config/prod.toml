@@ -1,0 +1,8 @@
+[db]
+host = "prod-db.my.com"
+port = 5432
+login = "prod_user"
+password = "prod_passwd"
+
+[server]
+listen_port = 8080

@@ -4932,6 +4932,48 @@ fn main() {
         }
     }
 
+    {
+        // config dependency, work with .toml config file
+
+        use config::{Config, File};
+        use serde::Deserialize;
+
+        #[allow(dead_code)]
+        #[derive(Debug, Deserialize, Clone)]
+        struct AppConfig {
+            db: DbConfig,
+            server: ServerConfig,
+        }
+
+        #[allow(dead_code)]
+        #[derive(Debug, Deserialize, Clone)]
+        struct DbConfig {
+            host: String,
+            port: u32,
+            login: String,
+            password: String,
+        }
+
+        #[allow(dead_code)]
+        #[derive(Debug, Deserialize, Clone)]
+        struct ServerConfig {
+            listen_port: u32,
+        }
+
+        let profile = std::env::var("PROFILE").unwrap_or_else(|_| "dev".into());
+
+        let cfg = Config::builder()
+            .add_source(File::with_name("config/default.toml"))
+            .add_source(File::with_name(&format!("config/{profile}.toml")))
+            .add_source(config::Environment::with_prefix("app").separator("__")) // define env variable APP__db__host=qwerty will reset db.host to this value
+            .build()
+            .unwrap();
+
+        let app_config: AppConfig = cfg.try_deserialize().unwrap();
+
+        println!("{app_config:?}");
+    }
+
     println!("end")
 }
 

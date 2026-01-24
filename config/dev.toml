@@ -1,0 +1,5 @@
+[db]
+host = "dev-db.my.com"
+port = 5432
+login = "postgres"
+password = "1111"

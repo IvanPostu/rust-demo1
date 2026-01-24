@@ -7,6 +7,8 @@ rustup default stable
 # or
 rustup toolchain install nightly
 
+cargo run --bin sequence_10
+
 # Build dev/debug
 cargo build
 #Build release
