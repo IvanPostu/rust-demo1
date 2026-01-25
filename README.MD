@@ -19,6 +19,8 @@ kill -SIGTERM $(ps aux | grep test_sigint_sigterm | awk 'NR==1 {print $2}')
 cargo run --bin test_axum2
 cargo test --bin test_axum2
 
+cargo run --bin test_sqlx
+
 # Build dev/debug
 cargo build
 #Build release
@@ -85,6 +87,68 @@ print arr
 # cargo expand - tool to debug macros
 # wrapper around: cargo rustc --profile=check -- -Zunpretty=expanded
 
+```
+
+## Setup postgres container
+
+```sh
+docker run --name my_pg_container \
+  -p 5432:5432 \
+  -e POSTGRES_PASSWORD=1111 \
+  -d postgres:17-alpine
+
+docker exec -it my_pg_container bash
+
+psql -U postgres
+
+CREATE DATABASE mydb;
+
+\c mydb;
+
+\list # show all dbs
+
+# ┌────────────┐         ┌────────────────┐
+# │  accounts  │         │  transactions  │
+# ├────────────┤         ├────────────────┤
+# │ id         │───┐     │ id             │
+# │ owner_name │   │     │ amount         │
+# │ balance    │   ├────*│ src_account_id │
+# └────────────┘   └────*│ dst_account_id │
+#                        │ tx_timestamp   │
+#                        └────────────────┘
+
+\dt # show current tables
+```
+
+```sql
+CREATE SEQUENCE accounts_seq START WITH 1000;
+
+CREATE TABLE accounts ( -- mydb.public.accounts 
+    id BIGINT PRIMARY KEY DEFAULT nextval('accounts_seq'),
+    owner_name VARCHAR(255) NOT NULL UNIQUE,
+    balance NUMERIC(10, 2)  NOT NULL DEFAULT 0.00 CHECK (balance >= 0)
+);
+
+CREATE SEQUENCE transactions_seq START WITH 1000;
+
+CREATE TABLE transactions ( -- mydb.public.transactions 
+    id BIGINT PRIMARY KEY DEFAULT nextval('transactions_seq'),
+    amount NUMERIC(10, 2) DEFAULT 0.00,
+    src_account_id BIGINT NOT NULL,
+    dst_account_id BIGINT NOT NULL,
+    tx_timestamp TIMESTAMP NOT NULL,
+    FOREIGN KEY (src_account_id) REFERENCES accounts (id),
+    FOREIGN KEY (src_account_id) REFERENCES accounts (id)
+);
+
+INSERT INTO accounts(id, owner_name, balance) VALUES
+(1, 'John Doe',    1000.00),
+(2, 'Ivan Ivanov', 2000.00);
+
+INSERT INTO transactions(amount, src_account_id, dst_account_id, tx_timestamp)
+VALUES
+(10.00, 1, 2, TO_TIMESTAMP('2025-12-11 14:00:00', 'YYYY-MM-DD HH24:MI:SS')),
+(20.00, 2, 1, TO_TIMESTAMP('2025-12-12 15:00:00', 'YYYY-MM-DD HH24:MI:SS'));
 ```
 
 ## Library
