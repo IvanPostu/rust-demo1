@@ -32,6 +32,9 @@ cargo sqlx prepare --database-url postgres://postgres:1111@localhost/mydb
 
 cargo run --bin axum_sqlx
 
+cargo run --bin openapi_test
+cargo run --bin openapi_test2
+
 # Build dev/debug
 cargo build
 #Build release
@@ -497,3 +500,4 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
 1. Rust's versioning approach <https://semver.org/>
 1. Rust Atomics and Locks - Mara Bos
 1. Tokio official docs. <https://tokio.rs/tokio/tutorial>
+1. <https://swagger.io/specification/>
