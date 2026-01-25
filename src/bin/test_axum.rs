@@ -21,6 +21,7 @@ use axum::{
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
+use tower_http::cors::CorsLayer;
 use std::io::Cursor;
 use std::{collections::HashMap, sync::Arc};
 use std::{
@@ -38,7 +39,8 @@ use std::{
 };
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
-use tower::Service;
+use tower::{Layer, Service};
+use tower_http::services::ServeFile;
 
 tokio::task_local! {
     pub static SESSION: Arc<Mutex<SessionData>>;
@@ -61,6 +63,11 @@ async fn main() {
         .with_max_level(tracing::Level::INFO)
         .init();
 
+    let allowed_origins = [
+        "http://mydomain.com".parse().unwrap(),
+        "http://api.mydomain.com".parse().unwrap(),
+    ];
+
     let sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>> = {
         let mut data = HashMap::new();
         data.insert(
@@ -82,6 +89,7 @@ async fn main() {
     let users_v2_router = Router::new().route("/users", get(list_users_v2));
 
     let app = Router::new()
+        .layer(CorsLayer::new().allow_origin(allowed_origins))
         .fallback(my_fallback)
         .nest("/api/v1", users_v1_router)
         .nest("/api/v2", users_v2_router)
@@ -116,8 +124,10 @@ async fn main() {
         .route("/handler_4", get(handler_4))
         .route("/handler_5", get(handler_5))
         .route("/handler_6", get(handler_6))
+        .route_service("/index", ServeFile::new("index.html"))
         .with_state(shared_state.clone())
         .layer(middleware::from_fn(log_exec_time))
+        .layer(ExecTimeLogLayer)
         .layer(from_fn(async |request: Request, next: Next| {
             tracing::info!("Middleware-1: before call");
             let response = next.run(request).await;
@@ -160,6 +170,51 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+#[derive(Clone)]
+struct ExecTimeLogService<S> {
+    next_handler: S,
+}
+
+impl<S> Service<Request> for ExecTimeLogService<S>
+where
+    S: Service<Request, Response = Response> + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.next_handler.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: Request) -> Self::Future {
+        let start = Instant::now();
+        let future = self.next_handler.call(request);
+        Box::pin(async move {
+            let response = future.await?;
+            tracing::info!(
+                "Custom: Request took: {} micros",
+                start.elapsed().as_micros()
+            );
+            Ok(response)
+        })
+    }
+}
+
+#[derive(Clone)]
+struct ExecTimeLogLayer;
+
+impl<S> Layer<S> for ExecTimeLogLayer {
+    type Service = ExecTimeLogService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        ExecTimeLogService {
+            next_handler: inner,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -216,7 +271,10 @@ async fn set_session_for_request(
 async fn log_exec_time(request: Request, next: Next) -> Response {
     let start = Instant::now();
     let response = next.run(request).await;
-    tracing::info!("Original: Request took: {} micros", start.elapsed().as_micros());
+    tracing::info!(
+        "Original: Request took: {} micros",
+        start.elapsed().as_micros()
+    );
     response
 }
 

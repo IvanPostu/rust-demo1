@@ -360,6 +360,20 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
     - “logical” is the key word here — concurrency can happen even on a single core via interleaving, such problems as `data race`are still present
 - What is middleware's order?
   - reversed order of definition, i.e. last `.layer` becomes first
+- What is the benefit if we create middleware/request handler by implementing `Service` trait from `tower` dependency?
+  - more flexibility, because it can have state
+- What does `CorsLayer` middleware do?
+  - adds `Access-Control-Allow-Origin` header
+- Enumerate services and middlewares
+  - `ServeDir` - serves all files inside the directory
+  - `Redirect`
+  - `CompressionLayer`
+  - `RequestDecompressionLayer`
+  - `NormalizePathLayer`
+  - `RequestBodyLimitLayer`
+  - `TimeoutLayer`
+  - `TraceLayer`
+  - `InFlightRequestLayer`
 
 ## References
 
