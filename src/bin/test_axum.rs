@@ -1,18 +1,25 @@
+use axum::extract::{FromRequest, Request};
+use axum::{
+    body::{to_bytes, Body, Bytes},
+    http::StatusCode,
+    routing::post,
+    Router,
+};
+use axum::{
+    extract::{FromRequestParts, Path, Query, State},
+    http::{request::Parts, HeaderMap},
+    response::{IntoResponse, Response},
+    routing::get,
+    Form, Json,
+};
+use serde::{de::DeserializeOwned, Deserialize};
+use std::io::Cursor;
 use std::{
     collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, LazyLock,
     },
-};
-
-use axum::{
-    body::Body,
-    extract::{FromRequestParts, Path, Query, State},
-    http::{request::Parts, HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
-    routing::{get, post},
-    Form, Json, Router,
 };
 
 struct SessionData {
@@ -31,7 +38,6 @@ struct Session(String, Arc<Mutex<SessionData>>);
 async fn main() {
     let sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>> = {
         let mut data = HashMap::new();
-        // тестовая сессия
         data.insert(
             "1111-1111-1111".to_string(),
             Arc::new(Mutex::new(SessionData {
@@ -57,6 +63,7 @@ async fn main() {
         .route("/users", post(create_user))
         .route("/users2", post(create_user2))
         .route("/users3", post(create_user3))
+        .route("/users4", post(create_user4))
         .route(
             "/greeting1/{name}/{example}",
             get(async move |path_args: Path<(String, String)>| {
@@ -105,6 +112,46 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+struct AnyFormat<D: DeserializeOwned>(D);
+
+impl<S: Send + Sync, D: DeserializeOwned> FromRequest<S> for AnyFormat<D> {
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request(request: Request<Body>, _state: &S) -> Result<Self, Self::Rejection> {
+        let (parts, body) = request.into_parts();
+        let Some(content_type) = parts.headers.get("content-type") else {
+            return Err((StatusCode::BAD_REQUEST, "Missing content-type"));
+        };
+        let body_bytes: Bytes = to_bytes(body, 100 * 1024 * 1024).await.unwrap();
+
+        let result = match content_type.to_str().unwrap() {
+            "application/json" => match serde_json::from_slice::<D>(&body_bytes) {
+                Ok(entity) => entity,
+                Err(_) => return Err((StatusCode::BAD_REQUEST, "Malformed JSON")),
+            },
+            "application/xml" => {
+                let cursor = Cursor::new(body_bytes);
+                match serde_xml_rs::from_reader::<'_, D, _>(cursor) {
+                    Ok(entity) => entity,
+                    Err(_) => return Err((StatusCode::BAD_REQUEST, "Malformed XML")),
+                }
+            }
+            _ => return Err((StatusCode::BAD_REQUEST, "Unsuported format")),
+        };
+        Ok(AnyFormat(result))
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+struct CreateUserRequest4 {
+    name: String,
+}
+
+async fn create_user4(AnyFormat(req): AnyFormat<CreateUserRequest4>) -> String {
+    format!("Received: {req:?}")
 }
 
 impl FromRequestParts<Arc<AppState>> for Session {
@@ -320,7 +367,7 @@ async fn handler_5() -> Json<Value> {
     Json(json!({"name": "John Doe"}))
 }
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::sync::RwLock;
 #[derive(Serialize, Deserialize)]
 struct Person {

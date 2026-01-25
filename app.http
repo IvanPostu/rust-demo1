@@ -59,3 +59,17 @@ Content-Type: application/json
 
 GET http://0.0.0.0:8080/example404
 Example: test1
+
+POST http://0.0.0.0:8080/users4
+Content-Type: application/json
+
+{
+    "name": "Test1"
+}
+
+
+POST http://0.0.0.0:8080/users4
+Content-Type: application/xml
+
+<CreateUserRequest><name>John Doe</name></CreateUserRequest>
+
