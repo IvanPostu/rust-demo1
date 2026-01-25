@@ -30,6 +30,8 @@ cargo run --bin sqlx_macro
 # validate sqlx macros
 cargo sqlx prepare --database-url postgres://postgres:1111@localhost/mydb
 
+cargo run --bin axum_sqlx
+
 # Build dev/debug
 cargo build
 #Build release

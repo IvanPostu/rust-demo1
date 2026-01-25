@@ -86,3 +86,16 @@ Content-Type: application/xml
 
 <CreateUserRequest><name>John Doe</name></CreateUserRequest>
 
+# ---
+
+GET http://localhost:8080/accounts
+
+
+POST http://localhost:8080/accounts
+Content-Type: application/json
+
+{
+    "owner_name": "Acc-1", 
+    "init_balance": 1000.0
+}
+
