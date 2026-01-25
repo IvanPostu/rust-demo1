@@ -15,15 +15,34 @@ use axum::{
     Form, Json, Router,
 };
 
+struct SessionData {
+    user_name: String,
+}
+
 #[derive(Debug)]
 struct AppState {
     counter: AtomicU64,
+    sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>>,
 }
+
+struct Session(String, Arc<Mutex<SessionData>>);
 
 #[tokio::main]
 async fn main() {
+    let sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>> = {
+        let mut data = HashMap::new();
+        // тестовая сессия
+        data.insert(
+            "1111-1111-1111".to_string(),
+            Arc::new(Mutex::new(SessionData {
+                user_name: "John Doe".to_string(),
+            })),
+        );
+        RwLock::new(data)
+    };
     let shared_state = Arc::new(AppState {
         counter: AtomicU64::new(0),
+        sessions,
     });
 
     let greeting = "Hello!".to_string();
@@ -86,6 +105,49 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+impl FromRequestParts<Arc<AppState>> for Session {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        if let Some(value) = parts.headers.get("sessionid") {
+            if let Ok(string_value) = value.to_str() {
+                let session_id = string_value.to_string();
+                let read_guard = state.sessions.read().await;
+                if let Some(session) = read_guard.get(&session_id) {
+                    Ok(Session(session_id, session.clone()))
+                } else {
+                    Err(StatusCode::UNAUTHORIZED)
+                }
+            } else {
+                Err(StatusCode::BAD_REQUEST)
+            }
+        } else {
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
+}
+
+struct SessionId(String);
+
+impl<S: Send + Sync> FromRequestParts<S> for SessionId {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        if let Some(value) = parts.headers.get("sessionid") {
+            if let Ok(string_value) = value.to_str() {
+                Ok(SessionId(string_value.to_string()))
+            } else {
+                Err(StatusCode::BAD_REQUEST)
+            }
+        } else {
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
 }
 
 struct MyQueryParams(HashMap<String, String>);
@@ -184,8 +246,15 @@ async fn add(Path((arg1, arg2)): Path<(i32, i32)>) -> String {
     format!("{arg1} + {arg2} = {}", arg1 + arg2)
 }
 
-async fn hello2(MyQueryParams(map): MyQueryParams) -> String {
-    format!("Query params: {map:?}")
+async fn hello2(
+    MyQueryParams(map): MyQueryParams,
+    SessionId(session_id): SessionId,
+    Session(id, session): Session,
+) -> String {
+    format!(
+        "Query params: {map:?}, Session ID: {session_id}, Session ID: {id}, User name: {}",
+        session.lock().await.user_name
+    )
 }
 
 async fn hello(headers: HeaderMap, Query(params): Query<HashMap<String, String>>) -> Response {
@@ -252,6 +321,7 @@ async fn handler_5() -> Json<Value> {
 }
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 #[derive(Serialize, Deserialize)]
 struct Person {
     name: String,
