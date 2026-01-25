@@ -24,6 +24,8 @@ cargo test --bin test_axum2
 
 cargo run --bin test_sqlx
 
+cargo test --bin test_containers
+
 # Build dev/debug
 cargo build
 #Build release
