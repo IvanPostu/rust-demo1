@@ -21,8 +21,8 @@ use axum::{
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
-use tower_http::cors::CorsLayer;
 use std::io::Cursor;
+use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 use std::{
     collections::HashSet,
@@ -40,7 +40,9 @@ use std::{
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
 use tower::{Layer, Service};
+use tower_http::cors::CorsLayer;
 use tower_http::services::ServeFile;
+use tower_http::timeout::TimeoutLayer;
 
 tokio::task_local! {
     pub static SESSION: Arc<Mutex<SessionData>>;
@@ -109,6 +111,7 @@ async fn main() {
                 return format!("Test - {} - {}", name, example);
             }),
         )
+        .route("/wait/{millis}", get(wait_millis))
         .route("/math/add/{arg1}/{arg2}", get(add))
         .route("/hello", get(hello))
         .route("/hello2", get(hello2))
@@ -128,6 +131,10 @@ async fn main() {
         .with_state(shared_state.clone())
         .layer(middleware::from_fn(log_exec_time))
         .layer(ExecTimeLogLayer)
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(10),
+        ))
         .layer(from_fn(async |request: Request, next: Next| {
             tracing::info!("Middleware-1: before call");
             let response = next.run(request).await;
@@ -169,7 +176,32 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    use tokio::signal;
+
+    let ctrl_c = signal::ctrl_c();
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("Cannot create SIGTERM handler")
+            .recv()
+            .await;
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    let result = tokio::select! {
+        _ = ctrl_c => "SIGINT",
+        _ = terminate => "SIGTERM",
+    };
+    tracing::info!("Triggered shutdown: {}", result);
 }
 
 #[derive(Clone)]
@@ -454,6 +486,17 @@ async fn create_user3(Json(input): Json<CreateUserRequest>) -> Response {
     // }
 }
 
+async fn wait_millis(Path(millis): Path<u64>) -> String {
+    let mut remailed_millis = millis;
+
+    while remailed_millis > 0 {
+        tracing::info!("remailed_millis={remailed_millis}");
+        remailed_millis -= 100;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    format!("Done: millis={millis}")
+}
 async fn add(Path((arg1, arg2)): Path<(i32, i32)>) -> String {
     format!("{arg1} + {arg2} = {}", arg1 + arg2)
 }

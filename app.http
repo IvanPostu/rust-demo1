@@ -22,6 +22,10 @@ sessionid: 1111-1111-1111
 GET http://0.0.0.0:8080/index
 sessionid: 1111-1111-1111
 
+GET http://0.0.0.0:8080/wait/90000
+sessionid: 1111-1111-1111
+
+
 GET http://0.0.0.0:8080/hello2?a=1&c=aba
 sessionid: 1111-1111-1111
 Example: test1

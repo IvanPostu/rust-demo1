@@ -10,6 +10,11 @@ rustup default stable
 cargo run --bin sequence_10
 # run other
 cargo run --bin test_axum
+kill -SIGINT $(ps aux | grep test_axum | awk 'NR==1 {print $2}')
+
+cargo run --bin test_sigint_sigterm
+kill -SIGINT $(ps aux | grep test_sigint_sigterm | awk 'NR==1 {print $2}')
+kill -SIGTERM $(ps aux | grep test_sigint_sigterm | awk 'NR==1 {print $2}')
 
 # Build dev/debug
 cargo build
@@ -304,6 +309,14 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
 1. The executor re-polls the Future
 <img src="./_forReadme/image copy 7.png" />
 
+## Shutdown hook
+
+- without explicit shutdown hook tokio stops requests that are ongoing
+- <img src="./_forReadme/image copy 8.png" />
+- with explicit shutdown hook, server waits until existing requests are processed
+- <img src="./_forReadme/image copy 9.png" />
+  - new requests are rejected
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
@@ -374,6 +387,8 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
   - `TimeoutLayer`
   - `TraceLayer`
   - `InFlightRequestLayer`
+- Why it is important to handle SIGTERM?
+  - When k8s kills a pod it triggers SIGTERM, waits 30s and if it is still running triggers SIGKILL
 
 ## References
 
