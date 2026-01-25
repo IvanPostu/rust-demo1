@@ -8,7 +8,7 @@ use std::{
 
 use axum::{
     body::Body,
-    extract::{Path, Query, State},
+    extract::{FromRequestParts, Path, Query, State},
     http::{request::Parts, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -52,6 +52,7 @@ async fn main() {
         )
         .route("/math/add/{arg1}/{arg2}", get(add))
         .route("/hello", get(hello))
+        .route("/hello2", get(hello2))
         .route("/handler_1", get(handler_1))
         .route("/handler_2", get(handler_2))
         .route("/handler_3", get(handler_3))
@@ -85,6 +86,27 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+struct MyQueryParams(HashMap<String, String>);
+
+impl<S: Send + Sync> FromRequestParts<S> for MyQueryParams {
+    type Rejection = ();
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let mut params = HashMap::new();
+        if let Some(query_string) = parts.uri.query() {
+            for pair in query_string.split("&") {
+                let mut kv = pair.split("=");
+                if let Some(k) = kv.next() {
+                    if let Some(v) = kv.next() {
+                        params.insert(k.to_string(), v.to_string());
+                    }
+                }
+            }
+        }
+        Ok(MyQueryParams(params))
+    }
 }
 
 #[derive(Debug)]
@@ -160,6 +182,10 @@ async fn create_user3(Json(input): Json<CreateUserRequest>) -> Response {
 
 async fn add(Path((arg1, arg2)): Path<(i32, i32)>) -> String {
     format!("{arg1} + {arg2} = {}", arg1 + arg2)
+}
+
+async fn hello2(MyQueryParams(map): MyQueryParams) -> String {
+    format!("Query params: {map:?}")
 }
 
 async fn hello(headers: HeaderMap, Query(params): Query<HashMap<String, String>>) -> Response {

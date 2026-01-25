@@ -12,6 +12,9 @@ Example: test1
 GET http://0.0.0.0:8080/hello
 Example: test1
 
+GET http://0.0.0.0:8080/hello2?a=1&c=aba
+Example: test1
+
 GET http://0.0.0.0:8080/handler_2?name=qwerty
 
 # curl -i --request POST \
