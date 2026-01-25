@@ -1,4 +1,5 @@
 use axum::extract::FromRequest;
+use axum::http::Method;
 use axum::middleware::from_fn;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -29,8 +30,15 @@ use std::{
         LazyLock,
     },
 };
+use std::{
+    convert::Infallible,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
+use tower::Service;
 
 tokio::task_local! {
     pub static SESSION: Arc<Mutex<SessionData>>;
@@ -96,6 +104,12 @@ async fn main() {
         .route("/math/add/{arg1}/{arg2}", get(add))
         .route("/hello", get(hello))
         .route("/hello2", get(hello2))
+        .route_service(
+            "/hello3",
+            HelloService {
+                greeting: "Hello!".to_string(),
+            },
+        )
         .route("/handler_1", get(handler_1))
         .route("/handler_2", get(handler_2))
         .route("/handler_3", get(handler_3))
@@ -148,6 +162,30 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+#[derive(Clone)]
+struct HelloService {
+    greeting: String,
+}
+
+impl Service<Request> for HelloService {
+    type Response = Response;
+    type Error = Infallible;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        if req.method() == Method::GET {
+            let greeting = self.greeting.clone();
+            Box::pin(async move { Ok(greeting.into_response()) })
+        } else {
+            Box::pin(async move { Ok(StatusCode::METHOD_NOT_ALLOWED.into_response()) })
+        }
+    }
+}
+
 async fn set_session_for_request(
     State(state): State<Arc<AppState>>,
     request: Request,
@@ -170,9 +208,7 @@ async fn set_session_for_request(
     };
 
     let response = SESSION
-        .scope(session, async {
-            next.run(request).await // вызываем обработчик по цепочке
-        })
+        .scope(session, async { next.run(request).await })
         .await;
     response
 }
@@ -180,7 +216,7 @@ async fn set_session_for_request(
 async fn log_exec_time(request: Request, next: Next) -> Response {
     let start = Instant::now();
     let response = next.run(request).await;
-    tracing::info!("Request took: {} micros", start.elapsed().as_micros());
+    tracing::info!("Original: Request took: {} micros", start.elapsed().as_micros());
     response
 }
 
