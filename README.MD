@@ -26,6 +26,10 @@ cargo run --bin test_sqlx
 
 cargo test --bin test_containers
 
+cargo run --bin sqlx_macro
+# validate sqlx macros
+cargo sqlx prepare --database-url postgres://postgres:1111@localhost/mydb
+
 # Build dev/debug
 cargo build
 #Build release
@@ -476,6 +480,12 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
   - `InFlightRequestLayer`
 - Why it is important to handle SIGTERM?
   - When k8s kills a pod it triggers SIGTERM, waits 30s and if it is still running triggers SIGKILL
+- Difference between macros `query_scalar!`, `query!`, `query_as!` and functions `query_scalar`, `query`, `query_as`?
+  - macros validates on compile time e.g. `cargo sqlx prepare --database-url postgres://postgres:1111@localhost/mydb` sql's correctness
+    - types are known on compile time
+    - is problematic when prod/dev tables differ
+  - function is good when query is built dynamically
+  - performance is same
 
 ## References
 
