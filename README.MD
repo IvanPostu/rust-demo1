@@ -16,6 +16,9 @@ cargo run --bin test_sigint_sigterm
 kill -SIGINT $(ps aux | grep test_sigint_sigterm | awk 'NR==1 {print $2}')
 kill -SIGTERM $(ps aux | grep test_sigint_sigterm | awk 'NR==1 {print $2}')
 
+cargo run --bin test_axum2
+cargo test --bin test_axum2
+
 # Build dev/debug
 cargo build
 #Build release
