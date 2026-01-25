@@ -1,32 +1,45 @@
-use axum::extract::{FromRequest, Request};
+use axum::extract::FromRequest;
+use axum::middleware::from_fn;
+use axum::middleware::{self, Next};
+use axum::response::{IntoResponse, Response};
 use axum::{
     body::{to_bytes, Body, Bytes},
-    http::StatusCode,
     routing::post,
-    Router,
 };
 use axum::{
-    extract::{FromRequestParts, Path, Query, State},
+    extract::{FromRequestParts, Path, Query},
     http::{request::Parts, HeaderMap},
-    response::{IntoResponse, Response},
-    routing::get,
     Form, Json,
 };
+use axum::{
+    extract::{Request, State},
+    http::StatusCode,
+    routing::get,
+    Router,
+};
+use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
+use serde_json::{json, Value};
 use std::io::Cursor;
+use std::{collections::HashMap, sync::Arc};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc, LazyLock,
+        LazyLock,
     },
 };
+use tokio::sync::{Mutex, RwLock};
+use tokio::time::Instant;
+
+tokio::task_local! {
+    pub static SESSION: Arc<Mutex<SessionData>>;
+}
 
 struct SessionData {
     user_name: String,
 }
 
-#[derive(Debug)]
 struct AppState {
     counter: AtomicU64,
     sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>>,
@@ -36,6 +49,10 @@ struct Session(String, Arc<Mutex<SessionData>>);
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+
     let sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>> = {
         let mut data = HashMap::new();
         data.insert(
@@ -85,7 +102,24 @@ async fn main() {
         .route("/handler_4", get(handler_4))
         .route("/handler_5", get(handler_5))
         .route("/handler_6", get(handler_6))
-        .with_state(shared_state);
+        .with_state(shared_state.clone())
+        .layer(middleware::from_fn(log_exec_time))
+        .layer(from_fn(async |request: Request, next: Next| {
+            tracing::info!("Middleware-1: before call");
+            let response = next.run(request).await;
+            tracing::info!("Middleware-1: after call");
+            response
+        }))
+        .layer(from_fn(async |request: Request, next: Next| {
+            tracing::info!("Middleware-2: before call");
+            let response = next.run(request).await;
+            tracing::info!("Middleware-2: after call");
+            response
+        }))
+        .layer(middleware::from_fn_with_state(
+            shared_state,
+            set_session_for_request,
+        )); // last middleware is first inside the chain
 
     // pros: each router instance can have its own state
     let qusers_router = Router::new()
@@ -112,6 +146,42 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn set_session_for_request(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let session = if let Some(value) = request.headers().get("sessionid") {
+        if let Ok(string_value) = value.to_str() {
+            let session_id = string_value.to_string();
+            let read_guard = state.sessions.read().await;
+            if let Some(session) = read_guard.get(&session_id) {
+                session.clone()
+            } else {
+                return StatusCode::UNAUTHORIZED.into_response();
+            }
+        } else {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+    } else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    let response = SESSION
+        .scope(session, async {
+            next.run(request).await // вызываем обработчик по цепочке
+        })
+        .await;
+    response
+}
+
+async fn log_exec_time(request: Request, next: Next) -> Response {
+    let start = Instant::now();
+    let response = next.run(request).await;
+    tracing::info!("Request took: {} micros", start.elapsed().as_micros());
+    response
 }
 
 struct AnyFormat<D: DeserializeOwned>(D);
@@ -151,6 +221,7 @@ struct CreateUserRequest4 {
 }
 
 async fn create_user4(AnyFormat(req): AnyFormat<CreateUserRequest4>) -> String {
+    tracing::info!("calling create_user4");
     format!("Received: {req:?}")
 }
 
@@ -300,7 +371,7 @@ async fn hello2(
 ) -> String {
     format!(
         "Query params: {map:?}, Session ID: {session_id}, Session ID: {id}, User name: {}",
-        session.lock().await.user_name
+        session.lock().await.user_name,
     )
 }
 
@@ -320,8 +391,15 @@ async fn hello(headers: HeaderMap, Query(params): Query<HashMap<String, String>>
     //     pub extensions: Extensions,
     // }
 
+    let session = SESSION.with(|session| session.clone());
+
     let content = match params.get("name") {
-        Some(name) => format!("Hello, {}!\nHeaders: {}", name, headers_string),
+        Some(name) => format!(
+            "Hello, {}!\nHeaders: {}, task local user: {}",
+            name,
+            headers_string,
+            session.lock().await.user_name
+        ),
         None => "Hello!".to_owned(),
     };
     let body = Body::new(content);
@@ -361,14 +439,10 @@ async fn handler_4() -> Vec<u8> {
     vec![1, 2, 3]
 }
 
-use futures::lock::Mutex;
-use serde_json::{json, Value};
 async fn handler_5() -> Json<Value> {
     Json(json!({"name": "John Doe"}))
 }
 
-use serde::Serialize;
-use tokio::sync::RwLock;
 #[derive(Serialize, Deserialize)]
 struct Person {
     name: String,

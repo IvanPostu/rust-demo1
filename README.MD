@@ -358,6 +358,8 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
   - `parallelism` - a concept describing the physical execution of instructions on two different processors or cores
   - `concurrency` - a concept describing the logical execution of instructions across multiple processors or cores
     - “logical” is the key word here — concurrency can happen even on a single core via interleaving, such problems as `data race`are still present
+- What is middleware's order?
+  - reversed order of definition, i.e. last `.layer` becomes first
 
 ## References
 
