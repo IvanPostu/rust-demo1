@@ -1,4 +1,6 @@
 use axum::extract::FromRequest;
+use axum::extract::Request;
+use axum::extract::{Path, State};
 use axum::http::Method;
 use axum::middleware::from_fn;
 use axum::middleware::{self, Next};
@@ -8,16 +10,11 @@ use axum::{
     routing::post,
 };
 use axum::{
-    extract::{FromRequestParts, Path, Query},
+    extract::{FromRequestParts, Query},
     http::{request::Parts, HeaderMap},
     Form, Json,
 };
-use axum::{
-    extract::{Request, State},
-    http::StatusCode,
-    routing::get,
-    Router,
-};
+use axum::{http::StatusCode, routing::get, Router};
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
@@ -37,6 +34,8 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::{broadcast, mpsc};
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::Instant;
 use tower::{Layer, Service};
@@ -55,6 +54,7 @@ struct SessionData {
 struct AppState {
     counter: AtomicU64,
     sessions: RwLock<HashMap<String, Arc<Mutex<SessionData>>>>,
+    word_snd: UnboundedSender<String>,
 }
 
 struct Session(String, Arc<Mutex<SessionData>>);
@@ -80,15 +80,41 @@ async fn main() {
         );
         RwLock::new(data)
     };
-    let shared_state = Arc::new(AppState {
-        counter: AtomicU64::new(0),
-        sessions,
-    });
 
     let greeting = "Hello!".to_string();
 
     let users_v1_router = Router::new().route("/users", get(list_users_v1));
     let users_v2_router = Router::new().route("/users", get(list_users_v2));
+
+    let (shutdown_snd, mut shutdown_rcv) = broadcast::channel::<()>(1);
+    let (word_snd, mut word_rcv) = mpsc::unbounded_channel::<String>();
+
+    let bg_job = tokio::spawn({
+        async move {
+            loop {
+                tokio::select! {
+                    word_resp = word_rcv.recv() => {
+                        if let Some(word) = word_resp {
+                            process_msg(word).await;
+                        }
+                    }
+                    _ = shutdown_rcv.recv() => {
+                        println!("> Worker received shutdown command");
+                        break;
+                    }
+                }
+            }
+            while let Ok(word) = word_rcv.try_recv() {
+                process_msg(word).await;
+            }
+            println!("> Worker is finished");
+        }
+    });
+    let shared_state = Arc::new(AppState {
+        counter: AtomicU64::new(0),
+        sessions,
+        word_snd,
+    });
 
     let app = Router::new()
         .layer(CorsLayer::new().allow_origin(allowed_origins))
@@ -128,6 +154,7 @@ async fn main() {
         .route("/handler_5", get(handler_5))
         .route("/handler_6", get(handler_6))
         .route_service("/index", ServeFile::new("index.html"))
+        .route("/enqueue/{word}", get(handle_request))
         .with_state(shared_state.clone())
         .layer(middleware::from_fn(log_exec_time))
         .layer(ExecTimeLogLayer)
@@ -180,6 +207,26 @@ async fn main() {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
+
+    println!("> Sending shutdown command to workers");
+    let _ = shutdown_snd.send(());
+
+    let _ = bg_job.await;
+}
+
+async fn handle_request(
+    Path(word): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> StatusCode {
+    match state.word_snd.send(word) {
+        Ok(_) => StatusCode::CREATED,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
+async fn process_msg(w: String) {
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    println!("Word: {w}");
 }
 
 async fn shutdown_signal() {
