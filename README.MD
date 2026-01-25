@@ -34,6 +34,7 @@ cargo run --bin axum_sqlx
 
 cargo run --bin openapi_test
 cargo run --bin openapi_test2
+cargo run --bin axum_prometheus
 
 # Build dev/debug
 cargo build
@@ -491,6 +492,10 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
     - is problematic when prod/dev tables differ
   - function is good when query is built dynamically
   - performance is same
+- Enumerate metric types and their characteristics
+  - counter - only increment
+  - gauge - increment and decrement
+  - histogram - an array of ordered buckets where a value falls into a bucket if it is less than or equal to the bucket’s value
 
 ## References
 
