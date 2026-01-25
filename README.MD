@@ -6,6 +6,9 @@ Minimal rust project
 rustup default stable
 # or rustup toolchain install nightly
 
+# setup sqlx cli tool
+cargo install sqlx-cli
+
 # run main
 cargo run --bin sequence_10
 # run other
@@ -383,6 +386,21 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
 - with explicit shutdown hook, server waits until existing requests are processed
 - <img src="./_forReadme/image copy 9.png" />
   - new requests are rejected
+
+## Sqlx Migrations
+
+- `cargo install sqlx-cli`, requires openssl & pkg-config, see shell.nix
+- `cargo sqlx migrate add accounts -r --sequential`
+- `cargo sqlx migrate add transactions -r --sequential`
+- `psql > CREATE DATABASE my_migration;`
+- `cargo sqlx migrate run  --database-url postgres://postgres:1111@localhost/my_migration`
+
+  ```sh
+    # revert
+    cargo sqlx migrate revert \
+        --target-version 1 \
+        --database-url postgres://postgres:1111@localhost/my_migration
+  ```
 
 ## Q&A
 

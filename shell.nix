@@ -5,9 +5,15 @@ in
 pkgs.mkShell {
   name = "app-shell";
 
+  nativeBuildInputs = [
+    pkgs.pkg-config # is required for `cargo install sqlx-cli`
+  ];
+
   buildInputs = with pkgs; [
     rustup
     gcc
+    openssl # is required for `cargo install sqlx-cli`
+    # sqlx-cli
   ];
 
   LANG = "en_US.UTF-8";
