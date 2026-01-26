@@ -471,7 +471,7 @@ cargo build --release --target x86_64-unknown-linux-musl
 cargo zigbuild --target x86_64-unknown-linux-musl --release
 ```
 
-If a library depends on GLIBC, then even if we build with target MUSL, it will still require glibc
+If a library depends on GLIBC, then even if we build with target MUSL, it will still require glibc, good example is oracle db driver (closed source)
 
 ## Q&A
 
@@ -558,6 +558,7 @@ If a library depends on GLIBC, then even if we build with target MUSL, it will s
 
 ## References
 
+1. <https://snorochevskiy.github.io/rust-for-backend-devs/async/async-in-rust.html>
 1. <https://stas-norochevskiy.gitbook.io/roll-in-to-rust>
 1. Dependency repository: <https://crates.io/>
 1. Rust tips and tricks: <https://github.com/awesome-rust-com/awesome-rust>
