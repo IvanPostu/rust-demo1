@@ -414,6 +414,65 @@ With such a scheduler, we can implement our own I/O API specifically for fibers,
         --database-url postgres://postgres:1111@localhost/my_migration
   ```
 
+## Cross Compilation
+
+```sh
+# Build on Ubuntu for Windows x86_64 target
+
+sudo apt install gcc-mingw-w64-x86-64
+rustup target add x86_64-pc-windows-gnu
+cargo build --release --target x86_64-pc-windows-gnu
+```
+
+```sh
+# Build on Windows for Linux target
+
+# download und unarchive: https://ziglang.org/download/
+# app zig executable to PATH env variable
+
+cargo install --locked cargo-zigbuild
+# for Windows Visual C++ is required, MinGW way not work
+# workaround can be: zigbuild docker container
+
+# On Linux build for Windows
+rustup target add x86_64-pc-windows-gnu
+cargo zigbuild --release --target x86_64-pc-windows-gnu
+
+# On Windows build for Linux
+rustup target add x86_64-unknown-linux-gnu
+cargo zigbuild --release --target x86_64-unknown-linux-gnu
+# REQUIREMENT: Glibc's version used on link phase shouldn't be greater than Glibc on target machine 
+
+ldd --version # shows glibc version
+
+# set explicit glibc version
+cargo zigbuild --release --target x86_64-unknown-linux-gnu.3.34
+
+# ---
+# wsl can be used for: On Windows build for Linux
+# or docker
+
+docker run --rm -it -v $(pwd):/io -w /io ghcr.io/rust-cross/cargo-zigbuild \
+  cargo zigbuild --release --target x86_64-pc-windows-gnu
+```
+
+MUSL - specific linux distribution without glibc, the idea is that it statically links the program
+
+```sh
+# for MUSL there is a separate rust toolchain
+rustup target add x86_64-unknown-linux-musl
+
+# for Ubuntu
+sudo apt install musl-tools musl-dev
+# it will allow to build with target: musl
+cargo build --release --target x86_64-unknown-linux-musl
+
+# zigbuild can do it as well
+cargo zigbuild --target x86_64-unknown-linux-musl --release
+```
+
+If a library depends on GLIBC, then even if we build with target MUSL, it will still require glibc
+
 ## Q&A
 
 - Generics: why do 2 ways of defining generics exist, `generic parameter (<T>)` and `associated types (type T;)`?
